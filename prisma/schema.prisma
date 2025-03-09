@@ -1,14 +1,44 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  role      String // "author", "editor", "reviewer"
+  createdAt DateTime @default(now())
+  papers    Paper[] // Papers uploaded by the user
+
+}
+
+model Paper {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  trackingNumber     String   @unique
+  authorEmail        String
+  originalFileName   String
+  anonymizedFileName String?
+  status             String // "uploaded", "under_review", "reviewed", "published"
+  uploadedAt         DateTime @default(now())
+  assignedReviewerId String?  @db.ObjectId
+  reviewComments     String?
+  finalDecision      String? // "accepted", "rejected"
+  author             User     @relation(fields: [authorEmail], references: [email])
+  Review             Review[]
+}
+
+model Review {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  paperId    String   @db.ObjectId
+  reviewerId String   @db.ObjectId
+  comments   String
+  rating     Int
+  reviewedAt DateTime @default(now())
+  paper      Paper    @relation(fields: [paperId], references: [id])
+  reviewer   User     @relation(fields: [reviewerId], references: [id])
 }
