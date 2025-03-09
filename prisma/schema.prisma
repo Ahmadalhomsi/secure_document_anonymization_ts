@@ -14,7 +14,7 @@ model User {
   role      String // "author", "editor", "reviewer"
   createdAt DateTime @default(now())
   papers    Paper[] // Papers uploaded by the user
-
+  Review Review[]
 }
 
 model Paper {
