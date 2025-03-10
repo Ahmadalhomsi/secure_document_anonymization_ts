@@ -50,12 +50,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('File saved:', fileName);
-    console.log('Author email:', authorEmail);
-    console.log('Original file name:', originalFileName);
-    console.log('Tracking number:', trackingNumber);
-    
-    
 
     // Save to database
     const paper = await prisma.paper.create({
