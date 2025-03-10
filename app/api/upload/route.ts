@@ -1,65 +1,79 @@
-import { NextRequest, NextResponse } from 'next/server'; // To handle the request and response
-import { promises as fs } from 'fs'; // To save the file temporarily
-import { v4 as uuidv4 } from 'uuid'; // To generate a unique filename
-import PDFParser from 'pdf2json'; // To parse the pdf
-import path from 'path'; // To handle file paths
+// app/api/upload/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { writeFile } from 'fs/promises';
+import { join } from 'path';
+import { mkdir } from 'fs/promises';
 
-export async function POST(req: NextRequest) {
-    const formData: FormData = await req.formData();
-    const uploadedFiles = formData.getAll('filepond');
-    let fileName = '';
-    let parsedText = '';
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const authorEmail = formData.get('authorEmail') as string;
+    const file = formData.get('file') as File;
+    const originalFileName = formData.get('originalFileName') as string;
 
-    if (uploadedFiles && uploadedFiles.length > 0) {
-        const uploadedFile = uploadedFiles[1];
-        console.log('Uploaded file:', uploadedFile);
-
-        // Check if uploadedFile is of type File
-        if (uploadedFile instanceof File) {
-            // Generate a unique filename
-            fileName = uuidv4();
-
-            // Define the pdfs directory and the temporary file path
-            const pdfsDir = path.join(process.cwd(), 'pdfs');
-            const tempFilePath = path.join(pdfsDir, `${fileName}.pdf`);
-
-            // Ensure the pdfs directory exists
-            await fs.mkdir(pdfsDir, { recursive: true });
-
-            // Convert ArrayBuffer to Buffer
-            const fileBuffer = Buffer.from(await uploadedFile.arrayBuffer());
-
-            // Save the buffer as a file
-            await fs.writeFile(tempFilePath, fileBuffer);
-
-            // Parse the pdf using pdf2json. See pdf2json docs for more info.
-
-            // The reason I am bypassing type checks is because
-            // the default type definitions for pdf2json in the npm install
-            // do not allow for any constructor arguments.
-            // You can either modify the type definitions or bypass the type checks.
-            // I chose to bypass the type checks.
-            const pdfParser = new (PDFParser as any)(null, 1);
-
-            // See pdf2json docs for more info on how the below works.
-            pdfParser.on('pdfParser_dataError', (errData: any) =>
-                console.log(errData.parserError)
-            );
-
-            pdfParser.on('pdfParser_dataReady', () => {
-                console.log((pdfParser as any).getRawTextContent());
-                parsedText = (pdfParser as any).getRawTextContent();
-            });
-
-            pdfParser.loadPDF(tempFilePath);
-        } else {
-            console.log('Uploaded file is not in the expected format.');
-        }
-    } else {
-        console.log('No files found.');
+    if (!authorEmail || !file || !originalFileName) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
     }
 
-    const response = new NextResponse(parsedText);
-    response.headers.set('FileName', fileName);
-    return response;
+    // Generate tracking number
+    const trackingNumber = Math.random().toString(36).substring(2, 15);
+    
+    // Create pdfs directory if it doesn't exist
+    const uploadDir = join(process.cwd(), 'pdfs');
+    try {
+      await mkdir(uploadDir, { recursive: true });
+    } catch (err) {
+      // Directory might already exist, which is fine
+      console.log('Directory creation info:', err);
+    }
+
+    // Save the file with a more readable name
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    
+    // Use a more readable filename format: trackingNumber_originalFileName.pdf
+    // Replace spaces and special characters in the original filename
+    const cleanFileName = originalFileName.replace(/[^a-zA-Z0-9.]/g, '_');
+    const fileName = `${trackingNumber}_${cleanFileName}`;
+    
+    try {
+      await writeFile(join(uploadDir, fileName), buffer);
+    } catch (err) {
+      console.error('Error saving file:', err);
+      return NextResponse.json(
+        { error: 'Failed to save file' },
+        { status: 500 }
+      );
+    }
+
+    console.log('File saved:', fileName);
+    console.log('Author email:', authorEmail);
+    console.log('Original file name:', originalFileName);
+    console.log('Tracking number:', trackingNumber);
+    
+    
+
+    // Save to database
+    const paper = await prisma.paper.create({
+      data: {
+        trackingNumber,
+        authorEmail,
+        originalFileName,
+        status: 'uploaded',
+        filePath: `pdfs/${fileName}`,
+      },
+    });
+
+    return NextResponse.json({ trackingNumber: paper.trackingNumber }, { status: 201 });
+  } catch (error) {
+    console.error('Error in upload API:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 }
