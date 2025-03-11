@@ -15,6 +15,10 @@ model Paper {
   status           String
   filePath         String?
   submitDate        DateTime @default(now())
+
+
+  feedback       String?
+  feedbackScore  Int? // 100/100
   reviewDate        DateTime @updatedAt
 
 }
