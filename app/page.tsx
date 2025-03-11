@@ -30,9 +30,8 @@ export default function UploadPage() {
         </CardHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="upload">Upload Paper</TabsTrigger>
-            <TabsTrigger value="track">Track Status</TabsTrigger>
             <TabsTrigger value="chat">
               Support Chat
               {!isConnected && <Badge variant="destructive" className="ml-2">Offline</Badge>}
@@ -45,13 +44,6 @@ export default function UploadPage() {
               setEmail={setEmail}
               setTrackingNumber={setTrackingNumber}
               onUploadSuccess={handleUploadSuccess}
-            />
-          </TabsContent>
-          
-          <TabsContent value="track">
-            <TrackSection 
-              trackingNumber={trackingNumber}
-              setTrackingNumber={setTrackingNumber}
             />
           </TabsContent>
           
