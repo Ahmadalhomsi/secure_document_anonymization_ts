@@ -14,8 +14,9 @@ model Paper {
   originalFileName String
   status           String
   filePath         String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  submitDate        DateTime @default(now())
+  reviewDate        DateTime @updatedAt
+
 }
 
 // model User {
