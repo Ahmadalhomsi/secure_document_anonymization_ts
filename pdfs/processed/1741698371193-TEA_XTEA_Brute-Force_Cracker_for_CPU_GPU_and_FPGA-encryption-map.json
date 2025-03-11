@@ -1,0 +1,47 @@
+{
+  "originalFile": "1741698371193-TEA_XTEA_Brute-Force_Cracker_for_CPU_GPU_and_FPGA.pdf",
+  "processedFile": "1741698371193-TEA_XTEA_Brute-Force_Cracker_for_CPU_GPU_and_FPGA-anonymized.pdf",
+  "encryptedData": [
+    {
+      "email": {
+        "aes": "d3ef94b8281bda047ad6be613f7892dc:7795ddb4b941009ab2d8a0d587bfffe961175d09d54422cae38204553de8ed03",
+        "rsa": "CA1Zxf/xAlHZ4EH6I5I+l4rhr+AMTdZ5Mug3K90oC1H8qAd5FPvB39upev2xxHkRJXPvHbOnadzPwXyKNGG8zs00C8aFgiCGq6fLmzB4MfX+lK9onzQTwtzFYSXgUajecVpHTL0kNAKBPOAFyTyn1eKCnNuE7WaE2jZTPOq5Jd6rqV/WK7gTiJ7sSk+1/+6GXiS8AdPKUsqbnoHLQZ5tr977Bc+pdV7dBs+xhAiDNfXAAE76pFPqWJrGG4wHOcjMb8uOKlMT691AdjeGnivbYGX2p6AMMpu8NdaHZUYBAYUH05fVoy3NaGf2CkJZZnejW+n1TgBSpXKUcRLzfo53qw==",
+        "sha256": "afefb5c50b9dd12a60d07f81aaf0c0e5714c69ec9c731627fffdf19b623984ec"
+      },
+      "affiliation": {
+        "aes": "b0871d44c33bbe0e5f4e41da58260857:5962e1743c89bc9caa147f8b8f1a09a28696a8bc46a8883cfa4bc443ec002c794f615a7785ab0241dcc3edc6f1239e771280eead45b2d9301aaf7b1ec151da42f68e703ac1b5cfb0b5582d548e61927908588adec1dec7bc4d2a422747fd11ba4b7ff7c02b55a07b1066d393f0080909309ecb407d98482c749d3595e7ebdf885f424c5c0826dbc3f55abb1df9a152edefe01aaed76052b4ef2390e5dda7559d",
+        "rsa": "nFauxZjh59V8+8fFk1BpFCAEkWFk8j5WpcXl/YrM5IgoJWpNzqRpiHxbM1TGrBRMX7nFWhLg+6kj0YCWpWO8iXudc6Zj39v9RJ9ZEtYnK6MPK8thWOkFVYlUmuq4uRWQ7c+oHiMBEBx74J950dmvssmbYGL6nzYnqdwA6pjg1M+nv1IxUNqcuyMahYZGWtvkluD9yLKiDWbgXGmI8dAbnvUS0XA5kUm6HBMVdKtXvTha+ihY3/LdcXv7PGD5LL12dilqJe/Szrk8lm0EoSBJOqGGAUppJ0P9HaVJnEOknyborqBlZt0NZHwaspMlvctUpMyfEdf64+zo7tX4oNKz2w==",
+        "sha256": "1bce9af860f64bbf3886875768d6a62c16d1acdfedfb41b7d6c8c7e2f4a75173"
+      }
+    },
+    {
+      "email": {
+        "aes": "2362100f77955226f6442d474e9fdbd6:50f7197b20cfa34bd3f25382d13246d1872cfd44a40e34cd6d8b7b50917957ea",
+        "rsa": "bX1sAO+7Od7VpFphijWR/EMKjVwNDlOi+fxOm2e0xFjmxzGouLFW6ge0u0i1ZcaVc9+i+9ycCf/kps6HNl2Y0gGGxCGsqb/j753M9jBTN/PHEkLLJQOqGu+yNf4wtNFHZLmYLpxeQJINzel1O2Zfjdmk3Xcf+TE9J3MD61P5En4qVqmN1beHufkj5Mzkcr9fTHA9muEQk/HGFonl1FlCCsEY+IqK92/WPgD8ijAxDkLlhGW/OO0tbvNi6FKXZqnnZp0DhfY+iVBEyjXVvCvlkWzGFNqmLTk4mqzgOpDiyX0zu5ASJoOAQAiHJEoSMx6SXSEh3/Xu+9RZ3ocpiCG4zQ==",
+        "sha256": "f8176fd07d48d88d93236fb897b0e608cff5517c3aa11a2e60f5b1e0e2fa35e9"
+      }
+    },
+    {
+      "email": {
+        "aes": "4d3b329bf91cff8689f3299a9c10d5af:a59df7425938f794f50a4da19b4123cc1c35cbd4fab852e91c925c696009288d",
+        "rsa": "HbT6RlCzkK5aNim5BhmJUOd7Zb2veb1s8jXQiG2XExhLO367ixsotkIXgJUodNwAqJ2dcvor8LIQ7vqbcPl3HLkv4YJzZBsmXkNlQF28gPdtujk/GpMk7KebNZa/KRWNmbXNhn+fuHHdyJSt3Ik3bDAFoFquv9Y0x0B/kI7cxi9V+TlBLhmJTYgDv8isxHddiazDfz5tUxjpoP2BO6FuNQhlsiOKR318jt3aPzya1nKpg7/pDryc5KV2igRvECCeW5M5B+savc4FXdVF7Wz6WLvTpolTUS1AJ7gXDH4s7jEVNl5SndjEznk4MsZDjq6OEoUXQmWy9rU9N1mfoND+jQ==",
+        "sha256": "f1e06a0f4f0d7a1ef281d42cbd62f80fccb74a4284a5da38eb3952b7ed6eb6f9"
+      }
+    }
+  ],
+  "sensitiveDataFound": {
+    "name": false,
+    "email": true,
+    "affiliation": true,
+    "title": true,
+    "address": true
+  },
+  "encryptionOptions": {
+    "name": true,
+    "email": true,
+    "affiliation": true,
+    "title": false,
+    "address": false
+  },
+  "timestamp": "2025-03-11T13:06:13.042Z"
+}
