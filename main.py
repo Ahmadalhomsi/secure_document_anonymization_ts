@@ -161,14 +161,17 @@ def extract_ieee_author_info(doc: fitz.Document, process_percentage=0.5) -> dict
 
     return authors_info
 
-
 def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
+    # Open the PDF for inspection
     doc = fitz.open("pdf", pdf_bytes)
-
+    
     # Extract author information from a larger portion of the first page
     author_info = extract_ieee_author_info(
         doc, process_percentage=0.5)  # Process top 50%
-
+    
+    # Close the doc after inspection
+    doc.close()
+    
     replacements = {}
     encrypted_data = []
 
@@ -224,16 +227,19 @@ def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
                 })
                 replacements[location] = ""
 
-    # Open the PDF for modification
-    output = io.BytesIO()
+    # Open the PDF again for modification
     doc = fitz.open("pdf", pdf_bytes)
+    
+    # Verify the document has pages
+    if doc.page_count == 0:
+        raise ValueError("The PDF document contains no pages")
 
     # Sort replacements by length (longest first) to avoid partial replacements
     sorted_replacements = sorted(
         replacements.items(), key=lambda x: len(x[0]), reverse=True)
 
     # Process the first page to remove sensitive information
-    page = doc[0]
+    page = doc[0]  # Get the first page
 
     # More aggressive approach using text extraction and drawing rectangles
     # Get all text blocks from the page
@@ -294,89 +300,173 @@ def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
 
     # Create a structured encryption data page that's easy to read and process
     if encrypted_data:
-        # Add a new page at the end
-        new_page = doc.new_page(-1, width=page.rect.width,
-                                height=page.rect.height)
+        try:
+            # Add a new page at the end
+            page_width = page.rect.width
+            page_height = page.rect.height
+            new_page = doc.new_page(-1, width=page_width, height=page_height)
+            
+            # Simple title at the top
+            new_page.insert_text(
+                fitz.Point(50, 50),
+                "ENCRYPTED INFORMATION",
+                fontsize=16,
+                fontname="Helvetica-Bold"
+            )
+            
+            # Add simple information about what was encrypted
+            y_position = 80
+            
+            if options.name and author_info["names"]:
+                new_page.insert_text(
+                    fitz.Point(50, y_position),
+                    f"Author Names: {len(author_info['names'])} found and encrypted",
+                    fontsize=10
+                )
+                y_position += 20
+                
+            if options.email and author_info["emails"]:
+                new_page.insert_text(
+                    fitz.Point(50, y_position),
+                    f"Emails: {len(author_info['emails'])} found and encrypted",
+                    fontsize=10
+                )
+                y_position += 20
+                
+            if options.affiliation and author_info["affiliations"]:
+                new_page.insert_text(
+                    fitz.Point(50, y_position),
+                    f"Affiliations: {len(author_info['affiliations'])} found and encrypted",
+                    fontsize=10
+                )
+                y_position += 20
+            
+            # Add a separator
+            y_position += 10
+            new_page.draw_line(
+                fitz.Point(50, y_position),
+                fitz.Point(page_width - 50, y_position)
+            )
+            y_position += 20
+            
+            # Add details section title
+            new_page.insert_text(
+                fitz.Point(50, y_position),
+                "Encryption Details:",
+                fontsize=12,
+                fontname="Helvetica-Bold"
+            )
+            y_position += 30
+            
+            # Add each encrypted item with limited width to avoid overflow
+            current_x = 50
+            max_width = page_width - 100  # 50px margins on each side
 
-        # Improved structured format for the encryption information
-        text_blocks = []
-        text_blocks.append("ENCRYPTED INFORMATION\n\n")
-
-        # Group items by type for better organization
-        grouped_data = {
-            "name": [],
-            "email": [],
-            "affiliation": []
-        }
-
-        for item in encrypted_data:
-            for key, value in item.items():
-                if key in grouped_data:
-                    grouped_data[key].append(value)
-
-        # Format JSON data with proper line wrapping
-        text_blocks.append("{\n")
-
-        for data_type, items in grouped_data.items():
-            if items:
-                text_blocks.append(f'  "{data_type}": [\n')
-
-                for i, item in enumerate(items):
-                    text_blocks.append(f'    {{\n')
-
-                    # Truncate very long values to prevent text overflow
-                    original = item["original"]
-                    if len(original) > 50:
-                        original = original[:47] + "..."
-
-                    encrypted = item["encrypted"]
-                    if len(encrypted) > 50:
-                        # For AES values, we'll keep the IV part and truncate the cipher part
-                        if ":" in encrypted:
-                            iv, cipher = encrypted.split(":", 1)
-                            encrypted = f"{iv}:{cipher[:30]}..."
-                        else:
-                            encrypted = encrypted[:47] + "..."
-
-                    text_blocks.append(f'      "original": "{original}",\n')
-                    text_blocks.append(f'      "encrypted": "{encrypted}"\n')
-                    text_blocks.append(
-                        f'    }}{"," if i < len(items)-1 else ""}\n')
-
-                text_blocks.append('  ],\n')
-
-        # Remove the last comma and close the JSON structure
-        if text_blocks[-1].endswith(',\n'):
-            text_blocks[-1] = text_blocks[-1].rstrip(',\n') + '\n'
-        text_blocks.append('}\n')
-
-        # Join all text blocks
-        full_text = "".join(text_blocks)
-
-        # Calculate safe text width to prevent overflow
-        page_width = new_page.rect.width
-        margin = 50  # Left margin in points
-        right_margin = 50  # Right margin in points
-        text_width = page_width - margin - right_margin
-
-        # Use a smaller font size to accommodate more text
-        font_size = 9
-        font_name = "Courier"  # Monospaced font for better formatting
-
-        # Insert text with word wrapping
-        text_point = fitz.Point(margin, 50)  # Starting position
-
-        # Use PyMuPDF's built-in text insertion with controlled line width
-        # This will automatically wrap text to prevent overflow
-        new_page.insert_text(
-            text_point,
-            full_text,
-            fontname=font_name,
-            fontsize=font_size,
-            color=(0, 0, 0),
-            linewidth=text_width  # This sets the maximum width for text before wrapping
-        )
-
+            for item in encrypted_data:
+                for key, value in item.items():
+                    original = value["original"]
+                    encrypted = value["encrypted"]  # Don't truncate
+                    
+                    # Add the item type
+                    new_page.insert_text(
+                        fitz.Point(current_x, y_position),
+                        f"{key.capitalize()}:",
+                        fontsize=10,
+                        fontname="Helvetica-Bold"
+                    )
+                    y_position += 20  # Increase spacing
+                    
+                    # Add original value (can still truncate if needed)
+                    if len(original) > 70:
+                        original = original[:67] + "..."
+                    
+                    new_page.insert_text(
+                        fitz.Point(current_x, y_position),
+                        f"Original: {original}",
+                        fontsize=9
+                    )
+                    y_position += 20  # Increase spacing
+                    
+                    # Add encrypted value - handle long encrypted values
+                    # Start the encrypted value text
+                    encrypted_text = f"Encrypted: {encrypted}"
+                    
+                    # Calculate how many characters can fit on one line
+                    # Approximate 6 pixels per character for font size 9
+                    chars_per_line = int((max_width - current_x) / 6)
+                    
+                    # Break the encrypted text into multiple lines if needed
+                    if len(encrypted_text) > chars_per_line:
+                        # Print first line
+                        new_page.insert_text(
+                            fitz.Point(current_x, y_position),
+                            encrypted_text[:chars_per_line],
+                            fontsize=9
+                        )
+                        y_position += 15
+                        
+                        # Print remaining lines
+                        remaining = encrypted_text[chars_per_line:]
+                        while remaining:
+                            # Check if we need a new page
+                            if y_position > page_height - 50:
+                                new_page = doc.new_page(-1, width=page_width, height=page_height)
+                                y_position = 50
+                                
+                                # Add "continued" header
+                                new_page.insert_text(
+                                    fitz.Point(50, y_position),
+                                    "ENCRYPTED INFORMATION (CONTINUED)",
+                                    fontsize=16,
+                                    fontname="Helvetica-Bold"
+                                )
+                                y_position += 30
+                            
+                            # Print the next line
+                            new_page.insert_text(
+                                fitz.Point(current_x, y_position),
+                                remaining[:chars_per_line],
+                                fontsize=9
+                            )
+                            remaining = remaining[chars_per_line:]
+                            y_position += 15
+                    else:
+                        # Print the entire encrypted text on one line
+                        new_page.insert_text(
+                            fitz.Point(current_x, y_position),
+                            encrypted_text,
+                            fontsize=9
+                        )
+                        y_position += 20
+                    
+                    # Add a small separator with more space
+                    y_position += 10  # Add more space before the separator
+                    new_page.draw_line(
+                        fitz.Point(current_x, y_position),
+                        fitz.Point(current_x + 100, y_position)
+                    )
+                    y_position += 25  # Add more space after the separator
+                    
+                    # Check if we need to start a new page
+                    if y_position > page_height - 60:  # Increased margin
+                        new_page = doc.new_page(-1, width=page_width, height=page_height)
+                        y_position = 50
+                        
+                        # Add "continued" header
+                        new_page.insert_text(
+                            fitz.Point(50, y_position),
+                            "ENCRYPTED INFORMATION (CONTINUED)",
+                            fontsize=16,
+                            fontname="Helvetica-Bold"
+                        )
+                        y_position += 30
+        
+        except Exception as e:
+            print(f"Error adding encryption information page: {str(e)}")
+            # Continue with the PDF even if we can't add the encryption info page
+    
+    # Save the modified PDF
+    output = io.BytesIO()
     doc.save(output, deflate=True, garbage=4)
     doc.close()
 
@@ -394,7 +484,6 @@ def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
     }
 
     return output.getvalue(), mapping
-
 
 def decrypt_aes(encrypted_text: str) -> str:
     iv_hex, ciphertext_hex = encrypted_text.split(':')
