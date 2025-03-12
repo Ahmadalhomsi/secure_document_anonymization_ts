@@ -85,7 +85,7 @@ export default function Home() {
       console.log('Processing file:', uploadResult.filename);
       console.log('Encryption options:', encryptionOptions);
       
-      const processResponse = await fetch('/api/process-pdf', {
+      const processResponse = await fetch('/api/py/process-pdf', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
