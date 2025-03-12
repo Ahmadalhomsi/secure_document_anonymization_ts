@@ -70,7 +70,7 @@ export function UploadSection({
 
       const trackingNum = response.data.trackingNumber;
       setTrackingNumber(trackingNum);
-      setSuccessMessage(`Paper uploaded successfully! Your tracking number is: ${trackingNum}`);
+      setSuccessMessage(`Paper uploaded successfully! Your tracking number is: ${trackingNum} `);
       onUploadSuccess();
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -141,7 +141,7 @@ export function UploadSection({
               className="p-0 h-auto mt-2" 
               onClick={onUploadSuccess}
             >
-              Need help? Chat with our support team.
+               Need help? Chat with the manager
             </Button>
           </div>
         )}

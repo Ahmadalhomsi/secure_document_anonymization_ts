@@ -1,9 +1,9 @@
-// app/upload/page.tsx
 "use client"
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { UploadSection } from "@/components/upload-section";
 import { ChatSection } from "@/components/chat-section";
 import { TrackSection } from "@/components/track-section";
@@ -18,7 +18,6 @@ export default function UploadPage() {
   const [isConnected, setIsConnected] = useState(true);
   
   const handleUploadSuccess = () => {
-    setActiveTab("chat");
   };
 
   return (
@@ -48,6 +47,13 @@ export default function UploadPage() {
           </TabsContent>
           
           <TabsContent value="chat">
+            {trackingNumber && (
+              <Alert className="mb-4 bg-blue-50 border-blue-200">
+                <AlertDescription>
+                  Your paper has been submitted successfully. Tracking number: <span className="font-bold">{trackingNumber}</span>
+                </AlertDescription>
+              </Alert>
+            )}
             <ChatSection 
               email={email}
               trackingNumber={trackingNumber}
