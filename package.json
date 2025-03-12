@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"node ws-server.js\" \"next dev --turbopack\"",
+    "fastapi-dev": "pip3 install -r requirements.txt && python3 -m uvicorn main:app --reload",
+    "dev": "concurrently \"next dev --turbopack\" \"npm run fastapi-dev\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
