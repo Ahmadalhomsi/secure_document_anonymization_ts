@@ -70,18 +70,17 @@ def hash_sha256(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def extract_ieee_author_info(doc: fitz.Document) -> dict:
+def extract_ieee_author_info(doc: fitz.Document, process_percentage=0.5) -> dict:
     """
     Extract author information specifically from IEEE papers
-    focussing on the first page header section
+    focussing on the specified percentage of the first page
     """
     # Get text from only the first page where author info is typically found
     first_page = doc[0]
     text = first_page.get_text()
 
-    # For IEEE papers, we'll divide the page into sections
-    # Authors are typically in the top 30% of the first page
-    header_section = text[:int(len(text) * 0.3)]
+    # Process the specified percentage of the first page
+    header_section = text[:int(len(text) * process_percentage)]
 
     # Initialize results
     authors_info = {
@@ -111,13 +110,32 @@ def extract_ieee_author_info(doc: fitz.Document) -> dict:
             if 2 <= len(words) <= 4 and len(name) < 40:
                 authors_info["names"].append(name.strip())
 
-    # Extract emails - this is quite reliable with regex
-    emails = re.findall(
+    # Improved email extraction
+    # Try multiple patterns to catch different email formats
+    standard_emails = re.findall(
         r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', header_section)
-    authors_info["emails"] = emails
+
+    # IEEE sometimes formats emails with spaces or line breaks
+    # Remove line breaks and extra spaces, then search again
+    clean_header = re.sub(r'\s+', ' ', header_section)
+    additional_emails = re.findall(
+        r'\b[A-Za-z0-9._%+-]+\s*@\s*[A-Za-z0-9.-]+\s*\.\s*[A-Z|a-z]{2,}\b', clean_header)
+    additional_emails = [re.sub(r'\s+', '', email)
+                         for email in additional_emails]
+
+    # Check PDF text blocks directly for emails
+    blocks = first_page.get_text("blocks")
+    block_emails = []
+    for block in blocks:
+        if block[3] < first_page.rect.height * process_percentage:  # Only top portion of page
+            for match in re.finditer(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}', block[4]):
+                block_emails.append(match.group())
+
+    # Combine all email sources and remove duplicates
+    all_emails = list(set(standard_emails + additional_emails + block_emails))
+    authors_info["emails"] = all_emails
 
     # Extract affiliations - look for department, university, location patterns
-    # Typical IEEE affiliation format
     affiliations = re.findall(
         r'(?:Dept\.|Department)\s+of\s+[\w\s\-,&]+', header_section)
     if not affiliations:
@@ -147,8 +165,9 @@ def extract_ieee_author_info(doc: fitz.Document) -> dict:
 def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
     doc = fitz.open("pdf", pdf_bytes)
 
-    # Extract author information specifically from IEEE format
-    author_info = extract_ieee_author_info(doc)
+    # Extract author information from a larger portion of the first page
+    author_info = extract_ieee_author_info(
+        doc, process_percentage=0.5)  # Process top 50%
 
     replacements = {}
     encrypted_data = []
@@ -156,52 +175,56 @@ def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
     # Process names if option is enabled
     if options.name and author_info["names"]:
         for name in author_info["names"]:
-            sha = hash_sha256(name)
+            encrypted = encrypt_aes(name)
             encrypted_data.append({
                 "name": {
                     "original": name,
-                    "sha256": sha
+                    "encrypted": encrypted,
+                    "algorithm": "AES-256-CBC"
                 }
             })
-            replacements[name] = sha
+            replacements[name] = ""
 
     # Process emails if option is enabled
     if options.email and author_info["emails"]:
         for email in author_info["emails"]:
-            sha = hash_sha256(email)
+            encrypted = encrypt_aes(email)
             encrypted_data.append({
                 "email": {
                     "original": email,
-                    "sha256": sha
+                    "encrypted": encrypted,
+                    "algorithm": "AES-256-CBC"
                 }
             })
-            replacements[email] = sha
+            replacements[email] = ""
 
     # Process affiliations if option is enabled
     if options.affiliation:
         for affiliation in author_info["affiliations"]:
-            sha = hash_sha256(affiliation)
+            encrypted = encrypt_aes(affiliation)
             encrypted_data.append({
                 "affiliation": {
                     "original": affiliation,
-                    "sha256": sha
+                    "encrypted": encrypted,
+                    "algorithm": "AES-256-CBC"
                 }
             })
-            replacements[affiliation] = sha
+            replacements[affiliation] = ""
 
         # Also process locations if available
         if "locations" in author_info:
             for location in author_info["locations"]:
-                sha = hash_sha256(location)
+                encrypted = encrypt_aes(location)
                 encrypted_data.append({
                     "affiliation": {
                         "original": location,
-                        "sha256": sha
+                        "encrypted": encrypted,
+                        "algorithm": "AES-256-CBC"
                     }
                 })
-                replacements[location] = sha
+                replacements[location] = ""
 
-    # Replace text in PDF using redaction - but only on the first page where author info is
+    # Open the PDF for modification
     output = io.BytesIO()
     doc = fitz.open("pdf", pdf_bytes)
 
@@ -209,31 +232,150 @@ def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
     sorted_replacements = sorted(
         replacements.items(), key=lambda x: len(x[0]), reverse=True)
 
-    # Only process the first page where author info typically is
+    # Process the first page to remove sensitive information
     page = doc[0]
+
+    # More aggressive approach using text extraction and drawing rectangles
+    # Get all text blocks from the page
+    blocks = page.get_text("blocks")
+
+    # Track redacted areas to prevent overlap
     redacted_areas = []
 
+    # Process each text block in the first 50% of the page
+    for block in blocks:
+        # Only process blocks in the top 50% of the page
+        if block[1] < page.rect.height * 0.5:
+            block_text = block[4]  # The text content of the block
+            should_redact = False
+
+            # Check if this block contains any text that needs to be replaced
+            for original, _ in sorted_replacements:
+                if original in block_text:
+                    should_redact = True
+                    break
+
+            if should_redact:
+                # Create a rectangle covering this block
+                rect = fitz.Rect(block[0], block[1], block[2], block[3])
+
+                # Add some padding to ensure complete coverage
+                rect.x0 -= 3
+                rect.x1 += 3
+                rect.y0 -= 3
+                rect.y1 += 3
+
+                # Create a white rectangle to cover the text
+                page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
+                redacted_areas.append(rect)
+
+    # Now handle each text string specifically for more precise redaction
     for original, replacement in sorted_replacements:
-        for inst in page.search_for(original):
-            # Only redact if in the top 30% of the page (typical for author info)
-            if inst.y0 < page.rect.height * 0.4:
-                # Check if this area overlaps with any previously redacted area
-                overlaps = False
-                for area in redacted_areas:
-                    if (max(inst.x0, area.x0) < min(inst.x1, area.x1) and
-                            max(inst.y0, area.y0) < min(inst.y1, area.y1)):
-                        overlaps = True
-                        break
+        instances = page.search_for(original)
 
-                if not overlaps:
-                    # Add some padding to the redacted area to prevent text overlap
-                    expanded_rect = fitz.Rect(
-                        inst.x0, inst.y0, inst.x1 + 5, inst.y1)
-                    page.add_redact_annot(
-                        expanded_rect, text=replacement, fill=(1, 1, 1))
-                    redacted_areas.append(expanded_rect)
+        for rect in instances:
+            # Only redact if in the top 50% of the page
+            if rect.y0 < page.rect.height * 0.5:
+                # Add some padding
+                rect.x0 -= 2
+                rect.x1 += 2
+                rect.y0 -= 2
+                rect.y1 += 2
 
+                # Add a formal redaction
+                annot = page.add_redact_annot(rect, text="", fill=(1, 1, 1))
+
+                # Also cover with rectangle for extra assurance
+                page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
+                redacted_areas.append(rect)
+
+    # Apply all redactions
     page.apply_redactions()
+
+    # Create a structured encryption data page that's easy to read and process
+    if encrypted_data:
+        # Add a new page at the end
+        new_page = doc.new_page(-1, width=page.rect.width,
+                                height=page.rect.height)
+
+        # Improved structured format for the encryption information
+        text_blocks = []
+        text_blocks.append("ENCRYPTED INFORMATION\n\n")
+
+        # Group items by type for better organization
+        grouped_data = {
+            "name": [],
+            "email": [],
+            "affiliation": []
+        }
+
+        for item in encrypted_data:
+            for key, value in item.items():
+                if key in grouped_data:
+                    grouped_data[key].append(value)
+
+        # Format JSON data with proper line wrapping
+        text_blocks.append("{\n")
+
+        for data_type, items in grouped_data.items():
+            if items:
+                text_blocks.append(f'  "{data_type}": [\n')
+
+                for i, item in enumerate(items):
+                    text_blocks.append(f'    {{\n')
+
+                    # Truncate very long values to prevent text overflow
+                    original = item["original"]
+                    if len(original) > 50:
+                        original = original[:47] + "..."
+
+                    encrypted = item["encrypted"]
+                    if len(encrypted) > 50:
+                        # For AES values, we'll keep the IV part and truncate the cipher part
+                        if ":" in encrypted:
+                            iv, cipher = encrypted.split(":", 1)
+                            encrypted = f"{iv}:{cipher[:30]}..."
+                        else:
+                            encrypted = encrypted[:47] + "..."
+
+                    text_blocks.append(f'      "original": "{original}",\n')
+                    text_blocks.append(f'      "encrypted": "{encrypted}"\n')
+                    text_blocks.append(
+                        f'    }}{"," if i < len(items)-1 else ""}\n')
+
+                text_blocks.append('  ],\n')
+
+        # Remove the last comma and close the JSON structure
+        if text_blocks[-1].endswith(',\n'):
+            text_blocks[-1] = text_blocks[-1].rstrip(',\n') + '\n'
+        text_blocks.append('}\n')
+
+        # Join all text blocks
+        full_text = "".join(text_blocks)
+
+        # Calculate safe text width to prevent overflow
+        page_width = new_page.rect.width
+        margin = 50  # Left margin in points
+        right_margin = 50  # Right margin in points
+        text_width = page_width - margin - right_margin
+
+        # Use a smaller font size to accommodate more text
+        font_size = 9
+        font_name = "Courier"  # Monospaced font for better formatting
+
+        # Insert text with word wrapping
+        text_point = fitz.Point(margin, 50)  # Starting position
+
+        # Use PyMuPDF's built-in text insertion with controlled line width
+        # This will automatically wrap text to prevent overflow
+        new_page.insert_text(
+            text_point,
+            full_text,
+            fontname=font_name,
+            fontsize=font_size,
+            color=(0, 0, 0),
+            linewidth=text_width  # This sets the maximum width for text before wrapping
+        )
 
     doc.save(output, deflate=True, garbage=4)
     doc.close()
@@ -244,14 +386,31 @@ def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
             "name": len(author_info["names"]) > 0,
             "email": len(author_info["emails"]) > 0,
             "affiliation": len(author_info["affiliations"]) > 0,
-            "title": False,  # Not implemented for IEEE papers
-            "address": False  # Not implemented for IEEE papers
+            "title": False,
+            "address": False
         },
         "encryption_options": options.dict(),
         "total_replacements": len(replacements)
     }
 
     return output.getvalue(), mapping
+
+
+def decrypt_aes(encrypted_text: str) -> str:
+    iv_hex, ciphertext_hex = encrypted_text.split(':')
+    iv = bytes.fromhex(iv_hex)
+    ciphertext = bytes.fromhex(ciphertext_hex)
+
+    cipher = Cipher(algorithms.AES(encryption_key),
+                    modes.CBC(iv),
+                    backend=default_backend())
+    decryptor = cipher.decryptor()
+    padded_data = decryptor.update(ciphertext) + decryptor.finalize()
+
+    unpadder = padding.PKCS7(128).unpadder()
+    data = unpadder.update(padded_data) + unpadder.finalize()
+
+    return data.decode()
 
 
 @app.post("/api/py/process-pdf")
@@ -314,63 +473,6 @@ async def process_pdf_endpoint(request: dict):
             status_code=500,
             content={
                 "error": f"Processing failed: {str(e)}",
-                "details": error_details
-            }
-        )
-
-
-# Add this to your FastAPI app
-@app.post("/api/py/decrypt-data")
-async def decrypt_data_endpoint(request: dict):
-    try:
-        # Extract hash from request
-        hash_value = request.get("hash")
-        if not hash_value:
-            return JSONResponse(
-                status_code=400,
-                content={"error": "Hash value is required"}
-            )
-
-        # Extract mapping from request
-        mapping = request.get("mapping")
-        if not mapping or "encrypted_data" not in mapping:
-            return JSONResponse(
-                status_code=400,
-                content={"error": "Valid mapping data is required"}
-            )
-
-        # Find the original value for this hash
-        original_value = None
-        data_type = None
-
-        for entry in mapping["encrypted_data"]:
-            for key, value in entry.items():
-                if value["sha256"] == hash_value:
-                    original_value = value["original"]
-                    data_type = key
-                    break
-            if original_value:
-                break
-
-        if not original_value:
-            return JSONResponse(
-                status_code=404,
-                content={"error": "No data found for this hash"}
-            )
-
-        return JSONResponse(content={
-            "success": True,
-            "original_value": original_value,
-            "data_type": data_type
-        })
-
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        return JSONResponse(
-            status_code=500,
-            content={
-                "error": f"Decryption failed: {str(e)}",
                 "details": error_details
             }
         )

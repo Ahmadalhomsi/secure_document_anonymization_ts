@@ -110,61 +110,17 @@ export default function Home() {
       const transformedResult = {
         ...processResult,
         sensitiveDataFound: processResult.mapping.sensitive_data_found,
-        authorCount: processResult.mapping.encrypted_data.filter((item: any) => item.name).length,
+        authorCount: processResult.mapping.encrypted_data.filter((item) => item.name).length,
         encryptedItems: processResult.mapping.encrypted_data,
         totalReplacements: processResult.mapping.total_replacements
       };
 
       setResult(transformedResult);
-
-      // // Add a download link if available
-      // if (processResult.download_url) {
-      //   setDownloadUrl(processResult.download_url);
-      // }
-
     } catch (err) {
       console.error('Error in upload/process flow:', err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Add a function to decode hash values
-  const [decodedValues, setDecodedValues] = useState<{ [key: string]: string }>({});
-
-  const decodeHash = async (hash: string) => {
-    try {
-      if (decodedValues.hasOwnProperty(hash)) {
-        return; // Already decoded this hash
-      }
-
-      const response = await fetch('/api/py/decrypt-data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          hash: hash,
-          mapping: result.mapping
-        }),
-      });
-
-      if (!response.ok) {
-        console.error('Failed to decode hash');
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
-        setDecodedValues(prev => ({
-          ...prev,
-          [hash]: data.original_value
-        }));
-      }
-    } catch (err) {
-      console.error('Error decoding hash:', err);
     }
   };
 
@@ -306,13 +262,13 @@ export default function Home() {
                           {result.encryptedItems.map((item: any, index: any) => (
                             <div key={index} className="mb-1">
                               {item.name && (
-                                <p>Name: {item.name.original} → {item.name.sha256.substring(0, 10)}...</p>
+                                <p>Name: {item.name.original} → {item.name.encrypted.substring(0, 10)}...</p>
                               )}
                               {item.email && (
-                                <p>Email: {item.email.original} → {item.email.sha256.substring(0, 10)}...</p>
+                                <p>Email: {item.email.original} → {item.email.encrypted.substring(0, 10)}...</p>
                               )}
                               {item.affiliation && (
-                                <p>Affiliation: {item.affiliation.original} → {item.affiliation.sha256.substring(0, 10)}...</p>
+                                <p>Affiliation: {item.affiliation.original} → {item.affiliation.encrypted.substring(0, 10)}...</p>
                               )}
                             </div>
                           ))}
@@ -327,30 +283,25 @@ export default function Home() {
                 <div className="mt-4">
                   <h4 className="font-medium">Encrypted Data:</h4>
                   <div className="bg-gray-50 p-3 rounded border mt-2 max-h-60 overflow-auto">
-                    {result.mapping.encrypted_data.map((item : any, index : any) => {
+                    {result.mapping.encrypted_data.map((item, index) => {
                       const dataType = Object.keys(item)[0];
                       const data = item[dataType];
                       return (
                         <div key={index} className="mb-2 p-2 border-b">
                           <div className="flex justify-between">
                             <span className="font-semibold capitalize">{dataType}:</span>
-                            <button
-                              onClick={() => decodeHash(data.sha256)}
-                              className="text-xs text-blue-600 hover:underline"
-                            >
-                              {decodedValues[data.sha256] ? 'Hide Original' : 'Show Original'}
-                            </button>
+                            <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+                              {data.algorithm || "AES-256-CBC"}
+                            </span>
+                          </div>
+                          <div className="mt-1">
+                            <span className="text-xs">Original: </span>
+                            <code className="bg-green-100 px-1 py-0.5 rounded text-xs">{data.original}</code>
                           </div>
                           <div className="mt-1">
                             <span className="text-xs">Encrypted: </span>
-                            <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">{data.sha256.substring(0, 10)}...</code>
+                            <code className="bg-gray-100 px-1 py-0.5 rounded text-xs break-all">{data.encrypted}</code>
                           </div>
-                          {decodedValues[data.sha256] && (
-                            <div className="mt-1">
-                              <span className="text-xs">Original: </span>
-                              <code className="bg-green-100 px-1 py-0.5 rounded text-xs">{decodedValues[data.sha256]}</code>
-                            </div>
-                          )}
                         </div>
                       );
                     })}
