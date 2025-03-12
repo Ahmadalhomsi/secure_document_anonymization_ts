@@ -50,69 +50,76 @@ export default function Home() {
     }));
   };
   
-  const handleUpload = async () => {
-    if (!file) return;
+// This is the corrected version of your handleUpload function
+const handleUpload = async () => {
+  if (!file) return;
+  
+  try {
+    setLoading(true);
+    setError(null);
+    setUploadError(null);
+    setProcessingError(null);
+    setResult(null);
     
-    try {
-      setLoading(true);
-      setError(null);
-      setUploadError(null);
-      setProcessingError(null);
-      setResult(null);
-      
-      // First upload the file to the server
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      console.log('Uploading file:', file.name);
-      
-      const uploadResponse = await fetch('/api/upload-pdf', {
-        method: 'POST',
-        body: formData,
-      });
-      
+    // First upload the file to the server
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    console.log('Uploading file:', file.name);
+    
+    const uploadResponse = await fetch('/api/upload-pdf', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!uploadResponse.ok) {
       const uploadResult = await uploadResponse.json();
-      
-      if (!uploadResponse.ok) {
-        setUploadError(uploadResult.error || 'Failed to upload file');
-        return;
-      }
-      
-      setUploadSuccess(true);
-      console.log('File uploaded successfully:', uploadResult);
-      
-      // Then process the uploaded file with encryption options
-      console.log('Processing file:', uploadResult.filename);
-      console.log('Encryption options:', encryptionOptions);
-      
-      const processResponse = await fetch('/api/py/process-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          filename: uploadResult.filename,
-          encryptionOptions
-        }),
-      });
-      
-      const processResult = await processResponse.json();
-      
-      if (!processResponse.ok) {
-        setProcessingError(processResult.error || 'Failed to process file');
-        console.error('Processing error details:', processResult.details);
-        return;
-      }
-      
-      console.log('File processed successfully:', processResult);
-      setResult(processResult);
-    } catch (err) {
-      console.error('Error in upload/process flow:', err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
-    } finally {
-      setLoading(false);
+      setUploadError(uploadResult.error || 'Failed to upload file');
+      return;
     }
-  };
+    
+    const uploadResult = await uploadResponse.json();
+    setUploadSuccess(true);
+    console.log('File uploaded successfully:', uploadResult);
+    
+    // Then process the uploaded file with encryption options
+    console.log('Processing file:', uploadResult.filename);
+    console.log('Encryption options:', encryptionOptions);
+    
+    const processResponse = await fetch('/api/py/process-pdf', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        filename: uploadResult.filename,
+        encryptionOptions
+      }),
+    });
+    
+    if (!processResponse.ok) {
+      const processError = await processResponse.json();
+      setProcessingError(processError.error || 'Failed to process file');
+      console.error('Processing error details:', processError.details);
+      return;
+    }
+    
+    const processResult = await processResponse.json();
+    console.log('File processed successfully:', processResult);
+    setResult(processResult);
+    
+    // // Add a download link if available
+    // if (processResult.download_url) {
+    //   setDownloadUrl(processResult.download_url);
+    // }
+    
+  } catch (err) {
+    console.error('Error in upload/process flow:', err);
+    setError(err instanceof Error ? err.message : 'An unknown error occurred');
+  } finally {
+    setLoading(false);
+  }
+};
   
   return (
     <main className="container mx-auto py-8 px-4">
@@ -230,16 +237,16 @@ export default function Home() {
                     <div className="mt-2">
                       <h4 className="font-medium">Sensitive data found and encrypted:</h4>
                       <ul className="list-disc pl-5 mt-1">
-                        {result.sensitiveDataFound.name && <li>Author name{result.authorCount > 1 ? 's' : ''}</li>}
-                        {result.sensitiveDataFound.email && <li>Email address{result.authorCount > 1 ? 'es' : ''}</li>}
-                        {result.sensitiveDataFound.affiliation && <li>Institutional affiliation{result.authorCount > 1 ? 's' : ''}</li>}
-                        {result.sensitiveDataFound.title && <li>Article title</li>}
-                        {result.sensitiveDataFound.address && <li>Address information</li>}
-                        {!result.sensitiveDataFound.name && 
-                         !result.sensitiveDataFound.email && 
-                         !result.sensitiveDataFound.affiliation &&
-                         !result.sensitiveDataFound.title &&
-                         !result.sensitiveDataFound.address && 
+                        {result.sensitiveDataFound?.name && <li>Author name{result.authorCount > 1 ? 's' : ''}</li>}
+                        {result.sensitiveDataFound?.email && <li>Email address{result.authorCount > 1 ? 'es' : ''}</li>}
+                        {result.sensitiveDataFound?.affiliation && <li>Institutional affiliation{result.authorCount > 1 ? 's' : ''}</li>}
+                        {result.sensitiveDataFound?.title && <li>Article title</li>}
+                        {result.sensitiveDataFound?.address && <li>Address information</li>}
+                        {!result.sensitiveDataFound?.name && 
+                         !result.sensitiveDataFound?.email && 
+                         !result.sensitiveDataFound?.affiliation &&
+                         !result.sensitiveDataFound?.title &&
+                         !result.sensitiveDataFound?.address && 
                          <li>No sensitive data found</li>}
                       </ul>
                     </div>

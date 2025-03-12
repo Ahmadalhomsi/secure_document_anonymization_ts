@@ -1,5 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Dict, List, Optional
 import fitz  # PyMuPDF
@@ -37,7 +37,7 @@ encryption_key = encryption_key.ljust(32, b'0')[:32]  # Ensure 32-byte key
 
 # Define paths for the PDF directories
 UPLOAD_DIR = os.path.join(os.getcwd(), "pdfs")
-PROCESS_DIR = os.path.join(os.getcwd(), "pdfs", "process")
+PROCESS_DIR = os.path.join(os.getcwd(), "pdfs", "processed")
 
 # Create directories if they don't exist
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -62,64 +62,142 @@ def encrypt_aes(text: str) -> str:
 def hash_sha256(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
-def extract_author_info(text: str) -> List[Dict[str, Optional[str]]]:
-    authors = []
-    patterns = {
-        'name': re.compile(r'(?:author|by|written by)[^:\n]*:\s*([^\n]+)', re.I),
-        'email': re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'),
-        'affiliation': re.compile(r'(?:Department|University|Institute|School)\s+of\s+[^\n,]+', re.I),
-        'title': re.compile(r'(?:title|Title)\s*:\s*([^\n.]+)', re.I),
-        'address': re.compile(r'(?:address|Address)\s*:\s*([^\n.]+)', re.I)
+def extract_ieee_author_info(doc: fitz.Document) -> dict:
+    """
+    Extract author information specifically from IEEE papers
+    focussing on the first page header section
+    """
+    # Get text from only the first page where author info is typically found
+    first_page = doc[0]
+    text = first_page.get_text()
+    
+    # For IEEE papers, we'll divide the page into sections
+    # Authors are typically in the top 30% of the first page
+    header_section = text[:int(len(text) * 0.3)]
+    
+    # Initialize results
+    authors_info = {
+        "names": [],
+        "emails": [],
+        "affiliations": []
     }
     
-    # Extract fields
-    fields = {k: [] for k in patterns.keys()}
-    for key, pattern in patterns.items():
-        matches = pattern.findall(text)
-        if key in ['name', 'title', 'address'] and matches:
-            fields[key] = [m[0] if isinstance(m, tuple) else m for m in matches]
-        else:
-            fields[key] = matches
+    # Extract author names - look for names in the header section
+    # IEEE format often has names followed by superscripts/numbers
+    # First look for names with ordinal indicators
+    ordinal_names = re.findall(r'(\d+(?:st|nd|rd|th))\s+([\w\s\-çÇăĂîÎâÂşŞţŢ˘\']+)', header_section)
+    if ordinal_names:
+        for _, name in ordinal_names:
+            authors_info["names"].append(name.strip())
+    else:
+        # Try to find names in other common IEEE formats
+        # Look for capitalized words that likely represent names
+        # Try to extract what appears to be full names
+        potential_names = re.findall(r'([A-Z][a-zçÇăĂîÎâÂşŞţŢ˘\-]+(?:\s+[A-Z][a-zçÇăĂîÎâÂşŞţŢ˘\-]+)+)', header_section)
+        # Filter out likely non-names (like paper title which can be in all caps)
+        for name in potential_names:
+            words = name.split()
+            # Typical name has 2-4 words and isn't too long
+            if 2 <= len(words) <= 4 and len(name) < 40:
+                authors_info["names"].append(name.strip())
     
-    max_count = max(len(fields[key]) for key in fields)
-    for i in range(max_count):
-        author = {key: fields[key][i] if i < len(fields[key]) else None for key in fields}
-        authors.append(author)
+    # Extract emails - this is quite reliable with regex
+    emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', header_section)
+    authors_info["emails"] = emails
     
-    return authors
+    # Extract affiliations - look for department, university, location patterns
+    # Typical IEEE affiliation format
+    affiliations = re.findall(r'(?:Dept\.|Department)\s+of\s+[\w\s\-,&]+', header_section)
+    if not affiliations:
+        # Try a broader pattern
+        affiliations = re.findall(r'(?:University|Institute|College|School)\s+of\s+[\w\s\-,&]+', header_section)
+    
+    # Also look for typical academic institution names
+    institutions = re.findall(r'(?:University|Institute|College)\s+[\w\s\-,&]+', header_section)
+    affiliations.extend(institutions)
+    
+    # Look for location/country info that often follows affiliation
+    locations = re.findall(r'(?:Bucharest|Romania|[A-Z][a-z]+),\s+(?:Romania|[A-Z][a-z]+)', header_section)
+    
+    # Combine unique affiliations
+    seen = set()
+    authors_info["affiliations"] = [x for x in affiliations if x not in seen and not seen.add(x)]
+    authors_info["locations"] = [x for x in locations if x not in seen and not seen.add(x)]
+    
+    return authors_info
 
-def process_pdf(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
+def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
     doc = fitz.open("pdf", pdf_bytes)
-    text = "\n".join(page.get_text() for page in doc)
-    authors_info = extract_author_info(text)
+    
+    # Extract author information specifically from IEEE format
+    author_info = extract_ieee_author_info(doc)
     
     replacements = {}
     encrypted_data = []
     
-    for author in authors_info:
-        encrypted_author = {}
-        for field in ['name', 'email', 'affiliation', 'title', 'address']:
-            original = author.get(field)
-            if original and getattr(options, field, False):
-                # Generate both encryption and hash
-                aes = encrypt_aes(original)
-                sha = hash_sha256(original)
-                encrypted_author[field] = {'aes': aes, 'sha256': sha}
-                
-                # Use SHA-256 if AES is too long (e.g., > 2x original length)
-                replacement = sha if len(aes) > 2 * len(original) else aes
-                replacements[original] = replacement
-        
-        encrypted_data.append(encrypted_author)
+    # Process names if option is enabled
+    if options.name and author_info["names"]:
+        for name in author_info["names"]:
+            sha = hash_sha256(name)
+            encrypted_data.append({
+                "name": {
+                    "original": name,
+                    "sha256": sha
+                }
+            })
+            replacements[name] = sha
     
-    # Replace text in PDF using redaction
+    # Process emails if option is enabled
+    if options.email and author_info["emails"]:
+        for email in author_info["emails"]:
+            sha = hash_sha256(email)
+            encrypted_data.append({
+                "email": {
+                    "original": email,
+                    "sha256": sha
+                }
+            })
+            replacements[email] = sha
+    
+    # Process affiliations if option is enabled
+    if options.affiliation:
+        for affiliation in author_info["affiliations"]:
+            sha = hash_sha256(affiliation)
+            encrypted_data.append({
+                "affiliation": {
+                    "original": affiliation,
+                    "sha256": sha
+                }
+            })
+            replacements[affiliation] = sha
+        
+        # Also process locations if available
+        if "locations" in author_info:
+            for location in author_info["locations"]:
+                sha = hash_sha256(location)
+                encrypted_data.append({
+                    "affiliation": {
+                        "original": location,
+                        "sha256": sha
+                    }
+                })
+                replacements[location] = sha
+    
+    # Replace text in PDF using redaction - but only on the first page where author info is
     output = io.BytesIO()
     doc = fitz.open("pdf", pdf_bytes)
-    for page in doc:
-        for original, replacement in replacements.items():
-            for inst in page.search_for(original):
+    
+    # Sort replacements by length (longest first) to avoid partial replacements
+    sorted_replacements = sorted(replacements.items(), key=lambda x: len(x[0]), reverse=True)
+    
+    # Only process the first page where author info typically is
+    page = doc[0]
+    for original, replacement in sorted_replacements:
+        for inst in page.search_for(original):
+            # Only redact if in the top 30% of the page (typical for author info)
+            if inst.y0 < page.rect.height * 0.3:
                 page.add_redact_annot(inst, text=replacement, fill=(1,1,1))
-        page.apply_redactions()
+    page.apply_redactions()
     
     doc.save(output, deflate=True, garbage=4)
     doc.close()
@@ -127,10 +205,14 @@ def process_pdf(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
     mapping = {
         "encrypted_data": encrypted_data,
         "sensitive_data_found": {
-            key: any(a.get(key) for a in authors_info) 
-            for key in ['name', 'email', 'affiliation', 'title', 'address']
+            "name": len(author_info["names"]) > 0,
+            "email": len(author_info["emails"]) > 0,
+            "affiliation": len(author_info["affiliations"]) > 0,
+            "title": False,  # Not implemented for IEEE papers
+            "address": False  # Not implemented for IEEE papers
         },
-        "encryption_options": options.dict()
+        "encryption_options": options.dict(),
+        "total_replacements": len(replacements)
     }
     
     return output.getvalue(), mapping
@@ -139,6 +221,12 @@ def process_pdf(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
 async def process_pdf_endpoint(request: dict):
     try:
         # Extract request data
+        if not request:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Invalid request format"}
+            )
+            
         filename = request.get("filename")
         if not filename:
             return JSONResponse(
@@ -166,8 +254,8 @@ async def process_pdf_endpoint(request: dict):
         with open(input_path, "rb") as f:
             pdf_bytes = f.read()
         
-        # Process the PDF
-        modified_pdf, mapping = process_pdf(pdf_bytes, encryption_options)
+        # Process the PDF specifically for IEEE papers
+        modified_pdf, mapping = process_pdf_for_ieee(pdf_bytes, encryption_options)
         
         # Save the processed PDF
         with open(output_path, "wb") as f:
@@ -178,7 +266,7 @@ async def process_pdf_endpoint(request: dict):
             "success": True,
             "mapping": mapping,
             "processed_filename": output_filename,
-            "download_url": f"/pdfs/process/{output_filename}"
+            "download_url": f"/pdfs/processed/{output_filename}"
         })
         
     except Exception as e:
