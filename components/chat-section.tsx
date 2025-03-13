@@ -67,7 +67,7 @@ export function ChatSection({ email, trackingNumber }: ChatSectionProps) {
 
       // Send to server using fetch
       try {
-        const response = await fetch('/api/message', {
+        const response = await fetch('/api/messages', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
