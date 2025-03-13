@@ -76,7 +76,7 @@ export function ChatSection({ email, trackingNumber }: ChatSectionProps) {
         });
 
         if (response.ok) {
-          const data = await response.json();
+          // const data = await response.json();
           // Optionally, handle the server response
         } else {
           console.error('Failed to send message');

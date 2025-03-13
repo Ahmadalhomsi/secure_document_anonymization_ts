@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { UploadSection } from "@/components/upload-section";
 import { ChatSection } from "@/components/chat-section";
-import { TrackSection } from "@/components/track-section";
 
 export default function UploadPage() {
   const [email, setEmail] = useState("");
@@ -15,7 +14,7 @@ export default function UploadPage() {
   
   // Check if websocket is connected (would be managed by ChatSection in a real app)
   // This is just a mock for showing the offline badge
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected] = useState(true);
   
   const handleUploadSuccess = () => {
   };
