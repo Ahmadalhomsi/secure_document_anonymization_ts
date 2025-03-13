@@ -13,8 +13,12 @@ import hashlib
 import io
 import json
 
+from fastapiRouter import test
+
 # Create FastAPI instance with custom docs and openapi url
 app = FastAPI(docs_url="/api/py/docs", openapi_url="/api/py/openapi.json")
+
+app.include_router(test.router)
 
 
 @app.get("/api/py/helloFastApi")
