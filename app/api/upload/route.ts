@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         trackingNumber,
         authorEmail,
         originalFileName,
-        status: 'uploaded',
+        status: 'pending',
         filePath: `pdfs/${fileName}`,
       },
     });

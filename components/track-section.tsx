@@ -14,7 +14,7 @@ interface TrackSectionProps {
 
 interface PaperStatus {
     id: string;
-    status: "pending" | "accepted" | "rejected";
+    status: "pending" | "accepted" | "rejected" | string; // Allow for other statuses
     originalFileName: string;
     submitDate: string;
     reviewDate?: string;
@@ -43,7 +43,7 @@ export function TrackSection({ trackingNumber, setTrackingNumber }: TrackSection
                 params: { trackingNumber: inputTrackingNumber }
             });
             console.log('Paper:', response.data);
-            setPaperStatus(response.data);
+            setPaperStatus(response.data.paper);
             setTrackingNumber(inputTrackingNumber);
         } catch (error: any) {
             console.error("Tracking error:", error);
@@ -111,7 +111,7 @@ export function TrackSection({ trackingNumber, setTrackingNumber }: TrackSection
                                     </h3>
                                     <div className="mt-2 space-y-2">
                                         <div className="text-sm">
-                                            <span className="font-medium">Status:</span> {paperStatus.status.charAt(0).toUpperCase() + paperStatus.status.slice(1)}
+                                            <span className="font-medium">Status:</span> {paperStatus.status ? paperStatus.status.charAt(0).toUpperCase() + paperStatus.status.slice(1) : "Unknown"}
                                         </div>
                                         <div className="text-sm">
                                             <span className="font-medium">Submission Date:</span> {paperStatus.submitDate}
