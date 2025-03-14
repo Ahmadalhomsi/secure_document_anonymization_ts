@@ -1,21 +1,21 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, FileText, Check, AlertTriangle, Info } from "lucide-react";
+import { Loader2, FileText, Check, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Home() {
-  const [file, setFile] = useState<File | null>(null);
+  const [availableFiles, setAvailableFiles] = useState<string[]>([]);
+  const [selectedFilename, setSelectedFilename] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [loadingFiles, setLoadingFiles] = useState(true);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadSuccess, setUploadSuccess] = useState<boolean>(false);
   const [processingError, setProcessingError] = useState<string | null>(null);
 
   // Encryption options state
@@ -27,19 +27,32 @@ export default function Home() {
     address: false
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile && selectedFile.type === 'application/pdf') {
-      setFile(selectedFile);
-      setError(null);
-      setUploadError(null);
-      setProcessingError(null);
-      setUploadSuccess(false);
-      setResult(null);
-    } else {
-      setFile(null);
-      setError('Please select a valid PDF file.');
-    }
+  // Fetch available PDFs when component mounts
+  useEffect(() => {
+    const fetchAvailableFiles = async () => {
+      try {
+        const response = await fetch('/api/list-pdfs');
+        if (!response.ok) {
+          throw new Error('Failed to fetch PDF list');
+        }
+        const data = await response.json();
+        setAvailableFiles(data.files || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load PDF files');
+      } finally {
+        setLoadingFiles(false);
+      }
+    };
+
+    fetchAvailableFiles();
+  }, []);
+
+  // Handle file selection
+  const handleFileSelection = (filename: string) => {
+    setSelectedFilename(filename);
+    setError(null);
+    setProcessingError(null);
+    setResult(null);
   };
 
   // Handle checkbox changes
@@ -50,40 +63,20 @@ export default function Home() {
     }));
   };
 
-  // This is the corrected version of your handleUpload function
-  const handleUpload = async () => {
-    if (!file) return;
+  // Process the selected file
+  const handleProcess = async () => {
+    if (!selectedFilename) {
+      setError('Please select a PDF file first');
+      return;
+    }
 
     try {
       setLoading(true);
       setError(null);
-      setUploadError(null);
       setProcessingError(null);
       setResult(null);
 
-      // First upload the file to the server
-      const formData = new FormData();
-      formData.append('file', file);
-
-      console.log('Uploading file:', file.name);
-
-      const uploadResponse = await fetch('/api/upload-pdf', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        const uploadResult = await uploadResponse.json();
-        setUploadError(uploadResult.error || 'Failed to upload file');
-        return;
-      }
-
-      const uploadResult = await uploadResponse.json();
-      setUploadSuccess(true);
-      console.log('File uploaded successfully:', uploadResult);
-
-      // Then process the uploaded file with encryption options
-      console.log('Processing file:', uploadResult.filename);
+      console.log('Processing file:', selectedFilename);
       console.log('Encryption options:', encryptionOptions);
 
       const processResponse = await fetch('/api/py/process-pdf', {
@@ -92,7 +85,7 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          filename: uploadResult.filename,
+          filename: selectedFilename,
           encryptionOptions
         }),
       });
@@ -110,14 +103,14 @@ export default function Home() {
       const transformedResult = {
         ...processResult,
         sensitiveDataFound: processResult.mapping.sensitive_data_found,
-        authorCount: processResult.mapping.encrypted_data.filter((item) => item.name).length,
+        authorCount: processResult.mapping.encrypted_data.filter((item : any) => item.name).length,
         encryptedItems: processResult.mapping.encrypted_data,
         totalReplacements: processResult.mapping.total_replacements
       };
 
       setResult(transformedResult);
     } catch (err) {
-      console.error('Error in upload/process flow:', err);
+      console.error('Error in process flow:', err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
       setLoading(false);
@@ -130,19 +123,36 @@ export default function Home() {
         <CardHeader>
           <CardTitle>Academic PDF Anonymizer</CardTitle>
           <CardDescription>
-            Upload an academic paper in PDF format to redact author information and encrypt sensitive data.
+            Select an existing PDF from the server to redact author information and encrypt sensitive data.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="grid w-full items-center gap-2">
-              <Input
-                id="pdf-upload"
-                type="file"
-                accept=".pdf"
-                onChange={handleFileChange}
-                className="cursor-pointer"
-              />
+              {/* PDF Selection dropdown */}
+              <div className="space-y-2">
+                <Label htmlFor="pdf-select">Select PDF from server</Label>
+                <Select
+                  value={selectedFilename}
+                  onValueChange={handleFileSelection}
+                  disabled={loadingFiles}
+                >
+                  <SelectTrigger id="pdf-select" className="w-full">
+                    <SelectValue placeholder={loadingFiles ? "Loading files..." : "Select a PDF file"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableFiles.length === 0 && !loadingFiles ? (
+                      <SelectItem value="no-files" disabled>No PDFs available</SelectItem>
+                    ) : (
+                      availableFiles.map(file => (
+                        <SelectItem key={file} value={file}>
+                          {file}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* Encryption options */}
               <div className="mt-4 mb-2">
@@ -203,22 +213,6 @@ export default function Home() {
                 </Alert>
               )}
 
-              {uploadError && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Upload Error</AlertTitle>
-                  <AlertDescription>{uploadError}</AlertDescription>
-                </Alert>
-              )}
-
-              {uploadSuccess && !processingError && !result && (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertTitle>File Uploaded Successfully</AlertTitle>
-                  <AlertDescription>Now processing the PDF...</AlertDescription>
-                </Alert>
-              )}
-
               {processingError && (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
@@ -254,27 +248,6 @@ export default function Home() {
                           <li>No sensitive data found</li>}
                       </ul>
                     </div>
-
-                    {result.encryptedItems && result.encryptedItems.length > 0 && (
-                      <div className="mt-3">
-                        <h4 className="font-medium">Details of encrypted items:</h4>
-                        <div className="bg-gray-50 p-2 mt-1 text-xs overflow-auto max-h-40 border rounded">
-                          {result.encryptedItems.map((item: any, index: any) => (
-                            <div key={index} className="mb-1">
-                              {item.name && (
-                                <p>Name: {item.name.original} → {item.name.encrypted.substring(0, 10)}...</p>
-                              )}
-                              {item.email && (
-                                <p>Email: {item.email.original} → {item.email.encrypted.substring(0, 10)}...</p>
-                              )}
-                              {item.affiliation && (
-                                <p>Affiliation: {item.affiliation.original} → {item.affiliation.encrypted.substring(0, 10)}...</p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </AlertDescription>
                 </Alert>
               )}
@@ -283,7 +256,7 @@ export default function Home() {
                 <div className="mt-4">
                   <h4 className="font-medium">Encrypted Data:</h4>
                   <div className="bg-gray-50 p-3 rounded border mt-2 max-h-60 overflow-auto">
-                    {result.mapping.encrypted_data.map((item, index) => {
+                    {result.mapping.encrypted_data.map((item : any, index : any) => {
                       const dataType = Object.keys(item)[0];
                       const data = item[dataType];
                       return (
@@ -308,21 +281,19 @@ export default function Home() {
                   </div>
                 </div>
               )}
-
-
             </div>
           </div>
         </CardContent>
         <CardFooter>
           <Button
-            onClick={handleUpload}
-            disabled={!file || loading}
+            onClick={handleProcess}
+            disabled={!selectedFilename || loading}
             className="w-full"
           >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {uploadSuccess ? 'Processing...' : 'Uploading...'}
+                Processing...
               </>
             ) : (
               <>
