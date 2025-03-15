@@ -11,11 +11,7 @@ router = APIRouter()
 
 PROCESS_DIR = os.path.join(os.getcwd(), "pdfs", "processed")
 
-@router.get("/api/py/review")
-def hello_fast_api():
-    return {"message": "Hello from FastAPI"}
-
-@router.post("/api/py/review/add")
+@router.post("/api/py/review")
 async def add_review_to_pdf(
     pdf_filename: str = Body(..., description="Name of the PDF file to add review to"),
     review_text: str = Body(..., description="Review text content"),
