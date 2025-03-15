@@ -31,14 +31,14 @@ model Message {
   createdAt DateTime @default(now())
 }
 
-// model User {
-//   id        Int      @id @default(autoincrement())
-//   email     String   @unique
-//   role      String   // "author", "editor", "reviewer"
-//   createdAt DateTime @default(now())
-//   papers    Paper[]  // Papers uploaded by the user
-//   reviews   Review[]
-// }
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  role      String   // "author", "editor", "reviewer"
+  createdAt DateTime @default(now())
+
+}
 
 // model Paper {
 //   id               Int      @id @default(autoincrement())
