@@ -13,21 +13,15 @@ import hashlib
 import io
 import json
 
-from fastapiRouter import review
+from fastapiRouter import review, categorize
 
 # Create FastAPI instance with custom docs and openapi url
 app = FastAPI(docs_url="/api/py/docs", openapi_url="/api/py/openapi.json")
 
 app.include_router(review.router)
-
-
-@app.get("/api/py/helloFastApi")
-def hello_fast_api():
-    return {"message": "Hello from FastAPI"}
-
+app.include_router(categorize.router)
 
 # Add CORS middleware
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],  # Next.js default port
@@ -338,6 +332,7 @@ def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
                 y_position += 20
                 
             if options.affiliation and author_info["affiliations"]:
+                
                 new_page.insert_text(
                     fitz.Point(50, y_position),
                     f"Affiliations: {len(author_info['affiliations'])} found and encrypted",
