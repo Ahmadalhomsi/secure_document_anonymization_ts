@@ -5,7 +5,6 @@ import PyPDF2
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from io import BytesIO
-import tempfile
 
 router = APIRouter()
 
@@ -78,21 +77,18 @@ async def add_review_to_pdf(
             new_page = PyPDF2.PdfReader(review_page).pages[0]
             pdf_writer.add_page(new_page)
             
-            # Create a temporary file for the new PDF
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
-                temp_path = temp_file.name
+            # Create the reviewed PDF file name
+            reviewed_pdf_filename = f"reviewed_{pdf_filename}"
+            reviewed_pdf_path = os.path.join(PROCESS_DIR, reviewed_pdf_filename)
             
-            # Write the new PDF to the temporary file
-            with open(temp_path, 'wb') as output_file:
+            # Write the new PDF to the reviewed file
+            with open(reviewed_pdf_path, 'wb') as output_file:
                 pdf_writer.write(output_file)
-            
-            # Replace the original file with the new one
-            os.replace(temp_path, pdf_path)
             
             return {
                 "success": True,
                 "message": f"Review added to '{pdf_filename}' successfully",
-                "pdf_path": pdf_path
+                "reviewed_pdf_path": reviewed_pdf_path
             }
             
     except Exception as e:
