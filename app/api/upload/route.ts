@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ trackingNumber: paper.trackingNumber }, { status: 201 });
+    return NextResponse.json({ trackingNumber: paper.trackingNumber, fileName: fileName }, { status: 201 });
   } catch (error) {
     console.error('Error in upload API:', error);
     return NextResponse.json(

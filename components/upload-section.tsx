@@ -14,11 +14,17 @@ interface UploadSectionProps {
   onUploadSuccess: () => void;
 }
 
-export function UploadSection({ 
-  email, 
-  setEmail, 
-  setTrackingNumber, 
-  onUploadSuccess 
+interface CategoryResult {
+  pdf_filename: string;
+  primary_category: string;
+  category_scores: Record<string, number>;
+}
+
+export function UploadSection({
+  email,
+  setEmail,
+  setTrackingNumber,
+  onUploadSuccess
 }: UploadSectionProps) {
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>("");
@@ -26,16 +32,20 @@ export function UploadSection({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [successMessage, setSuccessMessage] = useState("");
+  const [categoryResult, setCategoryResult] = useState<CategoryResult | null>(null);
+  const [isCategorizing, setIsCategorizing] = useState(false);
 
   const handleFileChange = (newFile: File | null) => {
     setFile(newFile);
     setFileName(newFile?.name || "");
+    setCategoryResult(null); // Reset category result when changing file
   };
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccessMessage("");
+    setCategoryResult(null);
 
     if (!email) {
       setError("Please provide your email address.");
@@ -71,6 +81,33 @@ export function UploadSection({
       const trackingNum = response.data.trackingNumber;
       setTrackingNumber(trackingNum);
       setSuccessMessage(`Paper uploaded successfully! Your tracking number is: ${trackingNum} `);
+
+      // Start categorization
+      setIsCategorizing(true);
+      // Modified axios request to correctly send the pdf_filename
+      try {
+        const categorizeData = new FormData();
+        categorizeData.append("pdf_filename", response.data.fileName);
+
+        // For debugging
+        console.log("Sending pdf_filename:", response.data.fileName);
+
+        const response2 = await axios.post("/api/py/categorize",
+          response.data.fileName,  // Send just the filename string
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        console.log("Categorization response:", response2.data);
+        setCategoryResult(response2.data);
+      } catch (error: any) {
+        console.error("Categorization error:", error);
+        console.error("Error details:", error.response?.data);
+        setError(prev => prev ? `${prev}. Categorization failed.` : "Categorization failed.");
+      }
+
       onUploadSuccess();
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -78,6 +115,33 @@ export function UploadSection({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Function to render category scores as a bar chart
+  const renderCategoryScores = () => {
+    if (!categoryResult?.category_scores) return null;
+
+    return (
+      <div className="mt-4 space-y-2 w-full">
+        <h4 className="font-medium text-sm">Category Analysis:</h4>
+        {Object.entries(categoryResult.category_scores)
+          .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+          .map(([category, score]) => (
+            <div key={category} className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span>{category}</span>
+                <span>{score.toFixed(1)}%</span>
+              </div>
+              <div className="bg-gray-200 rounded-full h-1.5">
+                <div
+                  className="bg-blue-600 h-1.5 rounded-full"
+                  style={{ width: `${score}%` }}
+                ></div>
+              </div>
+            </div>
+          ))}
+      </div>
+    );
   };
 
   return (
@@ -116,6 +180,15 @@ export function UploadSection({
             </div>
           )}
 
+          {isCategorizing && (
+            <div className="text-sm text-center mt-1">
+              <p>Analyzing document content...</p>
+              <div className="mt-2 flex justify-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-500"></div>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="p-3 bg-red-100 text-red-800 rounded-md">
               {error}
@@ -123,11 +196,11 @@ export function UploadSection({
           )}
         </form>
       </CardContent>
-      
+
       <CardFooter className="flex flex-col items-center">
         <Button
           onClick={handleUploadSubmit}
-          disabled={isSubmitting || !email || !file}
+          disabled={isSubmitting || isCategorizing || !email || !file}
           className="w-full"
         >
           {isSubmitting ? "Uploading..." : "Submit"}
@@ -136,12 +209,24 @@ export function UploadSection({
         {successMessage && (
           <div className="mt-4 p-3 bg-green-100 text-green-800 rounded-md w-full">
             {successMessage}
-            <Button 
-              variant="link" 
-              className="p-0 h-auto mt-2" 
+
+            {categoryResult && (
+              <div className="mt-3 border-t pt-3">
+                <div className="font-medium mb-2">Document Category:
+                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm">
+                    {categoryResult.primary_category}
+                  </span>
+                </div>
+                {renderCategoryScores()}
+              </div>
+            )}
+
+            <Button
+              variant="link"
+              className="p-0 h-auto mt-2"
               onClick={onUploadSuccess}
             >
-               Need help? Chat with the manager
+              Need help? Chat with the manager
             </Button>
           </div>
         )}
