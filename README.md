@@ -36,6 +36,14 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
 
+```bash
+python3 -m venv venv
+```
+
+```bash
+.\venv\Scripts\Activate
+```
 
 ```python
 pip install fastapi uvicorn pydantic PyMuPDF cryptography PyPDF2 reportlab
+```
