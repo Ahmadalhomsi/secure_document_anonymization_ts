@@ -100,6 +100,18 @@ export function UploadSection({
             },
           }
         );
+
+
+        try {
+          await axios.post("/api/categorize", {
+            trackingNumber: trackingNum,
+            category: response2.data.primary_category,
+          });
+        } catch (error) {
+          console.log("Error updating category:", error);
+          setError("Failed to update category.");
+        }
+
         console.log("Categorization response:", response2.data);
         setCategoryResult(response2.data);
       } catch (error: any) {
@@ -107,6 +119,7 @@ export function UploadSection({
         console.error("Error details:", error.response?.data);
         setError(prev => prev ? `${prev}. Categorization failed.` : "Categorization failed.");
       }
+      setIsCategorizing(false);
 
       onUploadSuccess();
     } catch (error: any) {

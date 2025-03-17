@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
         originalFileName,
         status: 'pending',
         filePath: `pdfs/${fileName}`,
+        category: 'uncategorized',
       },
     });
 

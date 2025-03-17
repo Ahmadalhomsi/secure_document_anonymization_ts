@@ -16,6 +16,7 @@ model Paper {
   filePath         String?
   submitDate        DateTime @default(now())
 
+  category         String
 
   feedback       String?
   feedbackScore  Int? // 100/100
