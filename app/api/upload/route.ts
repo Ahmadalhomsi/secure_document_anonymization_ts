@@ -11,16 +11,26 @@ export async function POST(request: NextRequest) {
     const authorEmail = formData.get('authorEmail') as string;
     const file = formData.get('file') as File;
     const originalFileName = formData.get('originalFileName') as string;
-
+    
     if (!authorEmail || !file || !originalFileName) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
-
-    // Generate tracking number
-    const trackingNumber = Math.random().toString(36).substring(2, 15);
+    
+    // Check if a paper with the same authorEmail and originalFileName already exists
+    const existingPaper = await prisma.paper.findFirst({
+      where: {
+        authorEmail,
+        originalFileName,
+      },
+    });
+    
+    // Generate tracking number - reuse existing one if paper exists
+    const trackingNumber = existingPaper 
+      ? existingPaper.trackingNumber 
+      : Math.random().toString(36).substring(2, 15);
     
     // Create pdfs directory if it doesn't exist
     const uploadDir = join(process.cwd(), 'pdfs');
@@ -30,7 +40,7 @@ export async function POST(request: NextRequest) {
       // Directory might already exist, which is fine
       console.log('Directory creation info:', err);
     }
-
+    
     // Save the file with a more readable name
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
@@ -49,21 +59,57 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-
-    // Save to database
-    const paper = await prisma.paper.create({
-      data: {
-        trackingNumber,
-        authorEmail,
-        originalFileName,
-        status: 'pending',
-        filePath: `pdfs/${fileName}`,
-        category: 'uncategorized',
-      },
-    });
-
-    return NextResponse.json({ trackingNumber: paper.trackingNumber, fileName: fileName }, { status: 201 });
+    
+    let paper;
+    
+    if (existingPaper) {
+      // Update existing paper entry
+      paper = await prisma.paper.update({
+        where: {
+          id: existingPaper.id
+        },
+        data: {
+          status: 'pending', // Reset status for the new submission
+          filePath: `pdfs/${fileName}`,
+          // Only update fields that should be refreshed
+          // Keep feedback and feedbackScore if you want to preserve them
+        },
+      });
+      
+      // Optionally, delete the old file if the path is different
+      if (existingPaper.filePath && existingPaper.filePath !== `pdfs/${fileName}`) {
+        try {
+          const oldFilePath = join(process.cwd(), existingPaper.filePath);
+          // You may want to use fs.unlink to delete the old file
+          // await unlink(oldFilePath);
+          console.log(`Previous file could be deleted at: ${oldFilePath}`);
+        } catch (err) {
+          console.error('Error deleting old file:', err);
+          // Continue even if file deletion fails
+        }
+      }
+    } else {
+      // Create new paper entry
+      paper = await prisma.paper.create({
+        data: {
+          trackingNumber,
+          authorEmail,
+          originalFileName,
+          status: 'pending',
+          filePath: `pdfs/${fileName}`,
+          category: 'uncategorized',
+        },
+      });
+    }
+    
+    return NextResponse.json(
+      { 
+        trackingNumber: paper.trackingNumber, 
+        fileName, 
+        isReplacement: !!existingPaper 
+      }, 
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Error in upload API:', error);
     return NextResponse.json(

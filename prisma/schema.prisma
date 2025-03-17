@@ -11,7 +11,7 @@ model Paper {
   id               Int      @id @default(autoincrement())
   trackingNumber   String   @unique
   authorEmail      String
-  originalFileName String
+  originalFileName String   @unique
   status           String
   filePath         String?
   submitDate        DateTime @default(now())
