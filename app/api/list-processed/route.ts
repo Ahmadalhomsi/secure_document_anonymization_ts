@@ -34,9 +34,12 @@ export async function GET() {
       },
     });
 
+    console.log('Files in directory:', filesInDirectory);
+    console.log('Papers in database:', papers);
+    
     // Combine the file list with database metadata
     const files = papers.filter(paper =>
-      filesInDirectory.includes(path.basename(paper.filePath || ''))
+      filesInDirectory.includes(path.basename("processed_" + paper.filePath || ''))
     );
 
     // Return the combined list

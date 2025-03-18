@@ -14,7 +14,7 @@ const reviewerProfiles = [
   { name: "Prof. John Davis", email: "j.davis@research.org", fieldOfInterest: "Natural Language Processing" },
   { name: "Dr. Sarah Chen", email: "schen@institute.ac", fieldOfInterest: "Computer Vision" },
   { name: "Prof. Michael Johnson", email: "mjohnson@tech.edu", fieldOfInterest: "Robotics" },
-  { name: "Dr. Emily White", email: "e.white@science.org", fieldOfInterest: "Quantum Computing" }
+  { name: "Dr. Emily White", email: "e.white@science.org", fieldOfInterest: "Cybersecurity" }
 ];
 
 export default function ReviewerPage() {
@@ -44,6 +44,7 @@ export default function ReviewerPage() {
           throw new Error("Failed to fetch PDF list");
         }
         const data = await response.json();
+        console.log("Available PDFs:", data.files);
         setAvailableFiles(data.files || []);
         setFilteredFiles(data.files || []);
       } catch (err) {
