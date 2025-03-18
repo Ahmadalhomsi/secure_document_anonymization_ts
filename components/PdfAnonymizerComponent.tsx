@@ -172,7 +172,7 @@ export default function PdfAnonymizerComponent() {
                   ) : (
                     availableFiles.map(file => (
                       <SelectItem key={file.filePath} value={file.filePath}>
-                        {file.filePath}
+                        {file.filePath} ({file.category})
                       </SelectItem>
                     ))
                   )}
