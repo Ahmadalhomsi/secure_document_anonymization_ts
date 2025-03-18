@@ -9,7 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ReviewerPage() {
-  const [availableFiles, setAvailableFiles] = useState<string[]>([]);
+
+  interface Paper {
+    trackingNumber: string;
+    filePath: string;
+    category: string;
+  }
+
+  const [availableFiles, setAvailableFiles] = useState<Paper[]>([]);
   const [selectedPdf, setSelectedPdf] = useState("");
   const [reviewText, setReviewText] = useState("");
   const [reviewScore, setReviewScore] = useState(0);
@@ -98,11 +105,15 @@ export default function ReviewerPage() {
                     <SelectValue placeholder="Select a PDF" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableFiles.map((file) => (
-                      <SelectItem key={file} value={file}>
-                        {file}
-                      </SelectItem>
-                    ))}
+                    {availableFiles.length === 0 && !loadingFiles ? (
+                      <SelectItem value="no-files" disabled>No PDFs available</SelectItem>
+                    ) : (
+                      availableFiles.map(file => (
+                        <SelectItem key={file.filePath} value={file.filePath}>
+                          {file.filePath} ({file.category})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               )}
