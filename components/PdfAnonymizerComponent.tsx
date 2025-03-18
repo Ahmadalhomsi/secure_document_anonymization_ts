@@ -15,6 +15,7 @@ export default function PdfAnonymizerComponent() {
   interface Paper {
     trackingNumber: string;
     filePath: string;
+    category: string;
   }
   const [availableFiles, setAvailableFiles] = useState<Paper[]>([]);
   const [selectedFilename, setSelectedFilename] = useState<string>("");

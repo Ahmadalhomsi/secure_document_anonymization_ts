@@ -10,6 +10,7 @@ export async function GET() {
       select: {
         trackingNumber: true,
         filePath: true,
+        category: true,
       },
     });
 
