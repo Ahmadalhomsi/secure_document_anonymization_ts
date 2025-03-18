@@ -1,33 +1,28 @@
-// File: app/api/list-pdfs/route.js or route.ts
+// File: app/api/list-pdfs/route.ts
 
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
-    // Define the path to your PDFs folder
-    const pdfsFolderPath = path.join(process.cwd(), 'pdfs');
-    
-    // Check if the directory exists
-    if (!fs.existsSync(pdfsFolderPath)) {
-      return NextResponse.json({ 
-        error: 'PDFs directory not found',
-        files: [] 
-      }, { status: 404 });
-    }
-    
-    // Read the directory contents
-    const files = fs.readdirSync(pdfsFolderPath)
-      .filter(file => file.toLowerCase().endsWith('.pdf'));
-    
-    // Return the list of PDF files
-    return NextResponse.json({ files });
+    // Fetch papers with tracking numbers and file paths from the database
+    const papers = await prisma.paper.findMany({
+      select: {
+        trackingNumber: true,
+        filePath: true,
+      },
+    });
+
+    // Return the list of papers with tracking numbers and file paths
+    return NextResponse.json({ files: papers });
   } catch (error) {
-    console.error('Error listing PDF files:', error);
-    return NextResponse.json({ 
-      error: 'Failed to list PDF files',
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    console.error('Error fetching papers:', error);
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch papers',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
   }
 }

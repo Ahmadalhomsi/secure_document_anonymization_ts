@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
           authorEmail,
           originalFileName,
           status: 'pending',
-          filePath: `pdfs/${fileName}`,
+          filePath: `${fileName}`,
           category: 'uncategorized',
         },
       });

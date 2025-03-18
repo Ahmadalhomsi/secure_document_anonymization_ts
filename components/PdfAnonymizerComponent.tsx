@@ -11,7 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function PdfAnonymizerComponent() {
-  const [availableFiles, setAvailableFiles] = useState<string[]>([]);
+
+  interface Paper {
+    trackingNumber: string;
+    filePath: string;
+  }
+  const [availableFiles, setAvailableFiles] = useState<Paper[]>([]);
   const [selectedFilename, setSelectedFilename] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [loadingFiles, setLoadingFiles] = useState(true);
@@ -109,6 +114,26 @@ export default function PdfAnonymizerComponent() {
         totalReplacements: processResult.mapping.total_replacements
       };
 
+      try { // process pdf by passing tracking number
+        const selectedPaper = availableFiles.find(file => file.filePath === selectedFilename);
+        if (!selectedPaper) {
+          throw new Error('Selected file not found in available files');
+        }
+
+        await fetch('/api/process-pdf', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            trackingNumber: selectedPaper.trackingNumber,
+          }),
+        });
+      } catch (error) {
+        console.error('Error updating paper status:', error);
+        setError('Failed to update paper status');
+      }
+
       setResult(transformedResult);
     } catch (err) {
       console.error('Error in process flow:', err);
@@ -145,8 +170,8 @@ export default function PdfAnonymizerComponent() {
                     <SelectItem value="no-files" disabled>No PDFs available</SelectItem>
                   ) : (
                     availableFiles.map(file => (
-                      <SelectItem key={file} value={file}>
-                        {file}
+                      <SelectItem key={file.filePath} value={file.filePath}>
+                        {file.filePath}
                       </SelectItem>
                     ))
                   )}

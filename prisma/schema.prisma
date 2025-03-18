@@ -11,17 +11,16 @@ model Paper {
   id               Int      @id @default(autoincrement())
   trackingNumber   String   @unique
   authorEmail      String
-  originalFileName String   @unique
+  originalFileName String
   status           String
   filePath         String?
-  submitDate        DateTime @default(now())
+  submitDate       DateTime @default(now())
 
-  category         String
+  category String
 
-  feedback       String?
-  feedbackScore  Int? // 100/100
-  reviewDate        DateTime @updatedAt
-
+  feedback      String?
+  feedbackScore Int? // 100/100
+  reviewDate    DateTime @updatedAt
 }
 
 model Message {
@@ -29,16 +28,18 @@ model Message {
   sender    String
   receiver  String
   message   String
+  
   createdAt DateTime @default(now())
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  role      String   // "author", "editor", "reviewer"
-  createdAt DateTime @default(now())
+model Reviewer {
+  // 5 hakem
+  id              Int    @id @default(autoincrement())
+  name            String
+  email           String @unique
+  fieldOfInterest String
 
+  createdAt DateTime @default(now())
 }
 
 // model Paper {
