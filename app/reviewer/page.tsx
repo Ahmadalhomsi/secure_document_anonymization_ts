@@ -8,8 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function ReviewerPage() {
+// Sample reviewer profiles
+const reviewerProfiles = [
+  { name: "Dr. Jane Smith", email: "jane.smith@university.edu", fieldOfInterest: "Machine Learning" },
+  { name: "Prof. John Davis", email: "j.davis@research.org", fieldOfInterest: "Natural Language Processing" },
+  { name: "Dr. Sarah Chen", email: "schen@institute.ac", fieldOfInterest: "Computer Vision" },
+  { name: "Prof. Michael Johnson", email: "mjohnson@tech.edu", fieldOfInterest: "Robotics" },
+  { name: "Dr. Emily White", email: "e.white@science.org", fieldOfInterest: "Quantum Computing" }
+];
 
+export default function ReviewerPage() {
   interface Paper {
     trackingNumber: string;
     filePath: string;
@@ -17,11 +25,13 @@ export default function ReviewerPage() {
   }
 
   const [availableFiles, setAvailableFiles] = useState<Paper[]>([]);
+  const [filteredFiles, setFilteredFiles] = useState<Paper[]>([]);
   const [selectedPdf, setSelectedPdf] = useState("");
   const [reviewText, setReviewText] = useState("");
   const [reviewScore, setReviewScore] = useState(0);
   const [reviewerEmail, setReviewerEmail] = useState("");
   const [reviewerName, setReviewerName] = useState("");
+  const [selectedProfile, setSelectedProfile] = useState("");
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +45,7 @@ export default function ReviewerPage() {
         }
         const data = await response.json();
         setAvailableFiles(data.files || []);
+        setFilteredFiles(data.files || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load PDF files");
       } finally {
@@ -44,6 +55,40 @@ export default function ReviewerPage() {
 
     fetchAvailableFiles();
   }, []);
+
+  // Handle profile selection
+  const handleProfileChange = (profileName: string) => {
+    setSelectedProfile(profileName);
+    
+    if (profileName === "none") {
+      // Reset form if no profile selected
+      setReviewerName("");
+      setReviewerEmail("");
+      setFilteredFiles(availableFiles);
+      return;
+    }
+    
+    // Find the selected profile
+    const profile = reviewerProfiles.find(p => p.name === profileName);
+    
+    if (profile) {
+      // Set reviewer information
+      setReviewerName(profile.name);
+      setReviewerEmail(profile.email);
+      
+      // Filter files based on field of interest
+      const filtered = availableFiles.filter(file => 
+        file.category.toLowerCase().includes(profile.fieldOfInterest.toLowerCase())
+      );
+      
+      setFilteredFiles(filtered);
+      
+      // Reset selected PDF if it's not in the filtered list
+      if (filtered.length > 0 && !filtered.some(f => f.filePath === selectedPdf)) {
+        setSelectedPdf("");
+      }
+    }
+  };
 
   const handleSubmit = async () => {
     if (!selectedPdf) {
@@ -89,6 +134,24 @@ export default function ReviewerPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {/* Profile Selector */}
+            <div>
+              <Label htmlFor="profile-selection">Select Reviewer Profile</Label>
+              <Select value={selectedProfile} onValueChange={handleProfileChange}>
+                <SelectTrigger id="profile-selection">
+                  <SelectValue placeholder="Select your profile" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No profile (show all papers)</SelectItem>
+                  {reviewerProfiles.map(profile => (
+                    <SelectItem key={profile.email} value={profile.name}>
+                      {profile.name} - {profile.fieldOfInterest}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <h2 className="text-xl font-semibold">Paper Title</h2>
             <p className="text-gray-600">Anonymized content of the paper...</p>
 
@@ -105,10 +168,10 @@ export default function ReviewerPage() {
                     <SelectValue placeholder="Select a PDF" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableFiles.length === 0 && !loadingFiles ? (
-                      <SelectItem value="no-files" disabled>No PDFs available</SelectItem>
+                    {filteredFiles.length === 0 ? (
+                      <SelectItem value="no-files-available">No matching PDFs available</SelectItem>
                     ) : (
-                      availableFiles.map(file => (
+                      filteredFiles.map(file => (
                         <SelectItem key={file.filePath} value={file.filePath}>
                           {file.filePath} ({file.category})
                         </SelectItem>
@@ -143,7 +206,7 @@ export default function ReviewerPage() {
               />
             </div>
 
-            {/* Reviewer Email */}
+            {/* Reviewer Email - Auto-filled from profile */}
             <div>
               <Label htmlFor="reviewer-email">Reviewer Email</Label>
               <Input
@@ -155,7 +218,7 @@ export default function ReviewerPage() {
               />
             </div>
 
-            {/* Reviewer Name */}
+            {/* Reviewer Name - Auto-filled from profile */}
             <div>
               <Label htmlFor="reviewer-name">Reviewer Name</Label>
               <Input
