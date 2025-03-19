@@ -6,42 +6,24 @@ export async function POST(req: NextRequest) {
     // Parse request body
     const { trackingNumber } = await req.json();
 
-    // Validate trackingNumber and originalFileName
+    // Validate trackingNumber
     if (!trackingNumber) {
       return NextResponse.json(
-        { error: 'Tracking number and original file name are required' },
+        { error: 'Tracking number is required' },
         { status: 400 }
       );
     }
 
-    // Fetch the Paper record
-    const paper = await prisma.paper.findUnique({
-      where: { trackingNumber },
-    });
-
-    if(!paper) {
-      return NextResponse.json(
-        { error: `Paper with tracking number ${trackingNumber} not found` },
-        { status: 404 }
-      );
-    }
-
-    // Construct the new file path
-    const newFilePath = `reviewed_${trackingNumber}_${paper.filePath}`;
-
-    // Update the status and filePath of the Paper record
+    // Update the status of the Paper record
     const updatedPaper = await prisma.paper.update({
       where: { trackingNumber },
-      data: {
-        status: 'reviewed',
-        filePath: newFilePath,
-      },
+      data: { status: 'reviewed' },
     });
 
     // Return success response
     return NextResponse.json({
       success: true,
-      message: `Paper with tracking number ${trackingNumber} has been marked as reviewed.`,
+      message: `Paper with tracking number ${trackingNumber} has been marked as processed.`,
       updatedPaper,
     });
   } catch (error) {

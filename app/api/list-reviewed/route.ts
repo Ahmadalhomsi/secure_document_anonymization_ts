@@ -33,17 +33,11 @@ export async function GET() {
         category: true,
       },
     });
-
-    console.log('Files in directory:', filesInDirectory);
-    console.log('Papers in database:', papers);
-
+    
     // Combine the file list with database metadata
     const files = papers.filter(paper =>
-      filesInDirectory.includes(path.basename(paper.filePath || ''))
+      filesInDirectory.includes(path.basename("reviewed_" + paper.filePath || ''))
     );
-
-    console.log('Combined files:', files);
-    
 
     // Return the combined list
     return NextResponse.json({ files });
