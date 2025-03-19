@@ -7,14 +7,45 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
-// Sample reviewer profiles
+// Updated reviewer profiles with multiple fields of interest
 const reviewerProfiles = [
-  { name: "Dr. Jane Smith", email: "jane.smith@university.edu", fieldOfInterest: "Machine Learning" },
-  { name: "Prof. John Davis", email: "j.davis@research.org", fieldOfInterest: "Natural Language Processing" },
-  { name: "Dr. Sarah Chen", email: "schen@institute.ac", fieldOfInterest: "Computer Vision" },
-  { name: "Prof. Michael Johnson", email: "mjohnson@tech.edu", fieldOfInterest: "Robotics" },
-  { name: "Dr. Emily White", email: "e.white@science.org", fieldOfInterest: "Cybersecurity" }
+  {
+    name: "Dr. Jane Smith",
+    email: "jane.smith@university.edu",
+    fieldsOfInterest: ["Artificial Intelligence and Machine Learning", "Big Data and Data Analytics"],
+    department: "Computer Science",
+    institution: "University of Technology"
+  },
+  {
+    name: "Prof. John Davis",
+    email: "j.davis@research.org",
+    fieldsOfInterest: ["Artificial Intelligence and Machine Learning", "Networking and Distributed Systems"],
+    department: "Information Sciences",
+    institution: "Research Institute"
+  },
+  {
+    name: "Dr. Sarah Chen",
+    email: "schen@institute.ac",
+    fieldsOfInterest: ["Human-Computer Interaction", "Big Data and Data Analytics"],
+    department: "Electrical Engineering",
+    institution: "Global Institute of Technology"
+  },
+  {
+    name: "Prof. Michael Johnson",
+    email: "mjohnson@tech.edu",
+    fieldsOfInterest: ["Human-Computer Interaction", "Networking and Distributed Systems"],
+    department: "Mechanical Engineering",
+    institution: "Tech University"
+  },
+  {
+    name: "Dr. Emily White",
+    email: "e.white@science.org",
+    fieldsOfInterest: ["Cybersecurity", "Networking and Distributed Systems"],
+    department: "Digital Sciences",
+    institution: "Science Academy"
+  }
 ];
 
 export default function ReviewerPage() {
@@ -57,10 +88,10 @@ export default function ReviewerPage() {
     fetchAvailableFiles();
   }, []);
 
-  // Handle profile selection
+  // Handle profile selection with enhanced filtering
   const handleProfileChange = (profileName: string) => {
     setSelectedProfile(profileName);
-    
+
     if (profileName === "none") {
       // Reset form if no profile selected
       setReviewerName("");
@@ -68,22 +99,24 @@ export default function ReviewerPage() {
       setFilteredFiles(availableFiles);
       return;
     }
-    
+
     // Find the selected profile
     const profile = reviewerProfiles.find(p => p.name === profileName);
-    
+
     if (profile) {
       // Set reviewer information
       setReviewerName(profile.name);
       setReviewerEmail(profile.email);
-      
-      // Filter files based on field of interest
-      const filtered = availableFiles.filter(file => 
-        file.category.toLowerCase().includes(profile.fieldOfInterest.toLowerCase())
+
+      // Filter files based on ANY field of interest in the profile
+      const filtered = availableFiles.filter(file =>
+        profile.fieldsOfInterest.some(field =>
+          file.category.toLowerCase().includes(field.toLowerCase())
+        )
       );
-      
+
       setFilteredFiles(filtered);
-      
+
       // Reset selected PDF if it's not in the filtered list
       if (filtered.length > 0 && !filtered.some(f => f.filePath === selectedPdf)) {
         setSelectedPdf("");
@@ -135,7 +168,7 @@ export default function ReviewerPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* Profile Selector */}
+            {/* Enhanced Profile Selector */}
             <div>
               <Label htmlFor="profile-selection">Select Reviewer Profile</Label>
               <Select value={selectedProfile} onValueChange={handleProfileChange}>
@@ -145,13 +178,40 @@ export default function ReviewerPage() {
                 <SelectContent>
                   <SelectItem value="none">No profile (show all papers)</SelectItem>
                   {reviewerProfiles.map(profile => (
-                    <SelectItem key={profile.email} value={profile.name}>
-                      {profile.name} - {profile.fieldOfInterest}
+                    <SelectItem key={profile.email} value={profile.name} className="p-2">
+                      <div className="flex flex-col gap-1">
+                        <div className="font-medium">{profile.name}</div>
+                        <div className="text-xs text-gray-500">{profile.department}, {profile.institution}</div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {profile.fieldsOfInterest.map(field => (
+                            <Badge key={field} variant="outline" className="text-xs py-0">
+                              {field}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Display Selected Profile Information */}
+            {selectedProfile && selectedProfile !== "none" && (
+              <div className="bg-gray-100 p-3 rounded-md">
+                <h3 className="font-medium">{reviewerName}</h3>
+                <p className="text-sm text-gray-600">{reviewerEmail}</p>
+                {reviewerProfiles.find(p => p.name === selectedProfile)?.fieldsOfInterest && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {reviewerProfiles.find(p => p.name === selectedProfile)?.fieldsOfInterest.map(field => (
+                      <Badge key={field} variant="secondary" className="text-xs">
+                        {field}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <h2 className="text-xl font-semibold">Paper Title</h2>
             <p className="text-gray-600">Anonymized content of the paper...</p>
@@ -207,7 +267,7 @@ export default function ReviewerPage() {
               />
             </div>
 
-            {/* Reviewer Email - Auto-filled from profile */}
+            {/* Reviewer Email - Auto-filled and locked from profile */}
             <div>
               <Label htmlFor="reviewer-email">Reviewer Email</Label>
               <Input
@@ -216,17 +276,22 @@ export default function ReviewerPage() {
                 placeholder="Enter your email"
                 value={reviewerEmail}
                 onChange={(e) => setReviewerEmail(e.target.value)}
+                disabled={selectedProfile !== "" && selectedProfile !== "none"}
+                readOnly={selectedProfile !== "" && selectedProfile !== "none"}
+                className={selectedProfile !== "" && selectedProfile !== "none" ? "bg-gray-100" : ""}
               />
             </div>
 
-            {/* Reviewer Name - Auto-filled from profile */}
+            {/* Reviewer Name - Auto-filled and locked from profile */}
             <div>
-              <Label htmlFor="reviewer-name">Reviewer Name</Label>
               <Input
                 id="reviewer-name"
                 placeholder="Enter your name"
                 value={reviewerName}
                 onChange={(e) => setReviewerName(e.target.value)}
+                disabled={selectedProfile !== "" && selectedProfile !== "none"}
+                readOnly={selectedProfile !== "" && selectedProfile !== "none"}
+                className={selectedProfile !== "" && selectedProfile !== "none" ? "bg-gray-100" : ""}
               />
             </div>
 
