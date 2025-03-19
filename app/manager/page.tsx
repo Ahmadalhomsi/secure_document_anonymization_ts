@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageCircle, FileText } from "lucide-react";
+import { MessageCircle, Lock, Unlock } from "lucide-react";
 
 import PdfAnonymizerComponent from '@/components/PdfAnonymizerComponent';
 import ChatComponent from '@/components/ChatComponent';
+import PdfDecrypterComponent from '@/components/PdfDecrypterComponent';
+
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("chat");
@@ -20,8 +22,12 @@ export default function Home() {
               Chat
             </TabsTrigger>
             <TabsTrigger value="pdf-anonymizer" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
+              <Lock className="h-4 w-4" />
               PDF Anonymizer
+            </TabsTrigger>
+            <TabsTrigger value="pdf-decrypter" className="flex items-center gap-2">
+              <Unlock className="h-4 w-4" />
+              PDF Decrypter
             </TabsTrigger>
           </TabsList>
         </div>
@@ -32,6 +38,10 @@ export default function Home() {
         
         <TabsContent value="pdf-anonymizer" className="mt-0">
           <PdfAnonymizerComponent />
+        </TabsContent>
+        
+        <TabsContent value="pdf-decrypter" className="mt-0">
+          <PdfDecrypterComponent />
         </TabsContent>
       </Tabs>
     </main>

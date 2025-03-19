@@ -151,13 +151,18 @@ export default function ReviewerPage() {
       if (response.ok) {
         alert("Review submitted successfully!");
         try {
-          await fetch("/api/review", {
-            method: "POST",
-            headers: {
+            const selectedFile = availableFiles.find(file => file.filePath === selectedPdf);
+            if (selectedFile) {
+            await fetch("/api/review", {
+              method: "POST",
+              headers: {
               "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ trackingNumber: selectedPdf }),
-          });
+              },
+              body: JSON.stringify({ trackingNumber: selectedFile.trackingNumber }),
+            });
+            } else {
+            console.error("Selected PDF does not match any available files.");
+            }
         } catch (error) {
           console.log(error);
         }
