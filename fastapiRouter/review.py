@@ -20,7 +20,7 @@ async def add_review_to_pdf(
     reviewer_name: str = Body(..., description="Name of the reviewer")
 ):
     # Construct the full path to the PDF file
-    pdf_path = os.path.join(PROCESS_DIR, pdf_filename)
+    pdf_path = os.path.join(PROCESS_DIR, ("processed_" + pdf_filename))
     
     # Check if the PDF file exists
     if not os.path.exists(pdf_path):

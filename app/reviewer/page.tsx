@@ -150,6 +150,17 @@ export default function ReviewerPage() {
 
       if (response.ok) {
         alert("Review submitted successfully!");
+        try {
+          await fetch("/api/review", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ trackingNumber: selectedPdf }),
+          });
+        } catch (error) {
+          console.log(error);
+        }
       } else {
         alert("Failed to submit review.");
       }
