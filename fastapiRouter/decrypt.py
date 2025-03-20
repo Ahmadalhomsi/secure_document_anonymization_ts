@@ -12,38 +12,124 @@ from cryptography.hazmat.backends import default_backend
 
 router = APIRouter()
 
-# Get encryption key from environment (should match the one in main.py)
+# Define paths for the PDF directories
+DECRYPT_DIR = os.path.join(os.getcwd(), "pdfs", "decrypted")
+REVIEW_DIR = os.path.join(os.getcwd(), "pdfs", "reviewed")
+
+# Create directories if they don't exist
+os.makedirs(DECRYPT_DIR, exist_ok=True)
+
+# Get encryption key from environment variable
 ENCRYPTION_KEY = os.getenv(
     "ENCRYPTION_KEY", "your-secure-encryption-key-min-32-chars")
 encryption_key = ENCRYPTION_KEY.encode()
 encryption_key = encryption_key.ljust(32, b'0')[:32]  # Ensure 32-byte key
 
-# Define paths for the PDF directories
-UPLOAD_DIR = os.path.join(os.getcwd(), "pdfs")
-PROCESS_DIR = os.path.join(os.getcwd(), "pdfs", "processed")
-REVIEW_DIR = os.path.join(os.getcwd(), "pdfs", "reviewed")
-
-# Create directories if they don't exist
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(PROCESS_DIR, exist_ok=True)
-os.makedirs(REVIEW_DIR, exist_ok=True)
-
 def decrypt_aes(encrypted_text: str) -> str:
-    iv_hex, ciphertext_hex = encrypted_text.split(':')
-    iv = bytes.fromhex(iv_hex)
-    ciphertext = bytes.fromhex(ciphertext_hex)
+    """
+    Decrypt AES encrypted text in the format "iv:encrypted_data"
+    """
+    try:
+        iv_hex, encrypted_hex = encrypted_text.split(":")
+        iv = bytes.fromhex(iv_hex)
+        encrypted = bytes.fromhex(encrypted_hex)
+        
+        cipher = Cipher(algorithms.AES(encryption_key),
+                      modes.CBC(iv), backend=default_backend())
+        decryptor = cipher.decryptor()
+        padded_data = decryptor.update(encrypted) + decryptor.finalize()
+        
+        unpadder = padding.PKCS7(128).unpadder()
+        data = unpadder.update(padded_data) + unpadder.finalize()
+        
+        return data.decode()
+    except Exception as e:
+        raise ValueError(f"Failed to decrypt data: {str(e)}")
 
-    cipher = Cipher(algorithms.AES(encryption_key),
-                    modes.CBC(iv),
-                    backend=default_backend())
-    decryptor = cipher.decryptor()
-    padded_data = decryptor.update(ciphertext) + decryptor.finalize()
+def extract_encryption_data(doc: fitz.Document) -> List[Dict]:
+    """
+    Extract the encryption data from the last pages of the PDF
+    """
+    encrypted_data = []
+    
+    # Check if the document has an encryption page
+    # The encryption data should be in the last pages of the document
+    for page_num in range(doc.page_count - 1, 0, -1):
+        page = doc[page_num]
+        text = page.get_text()
+        
+        # Check if this page contains encryption information
+        if "ENCRYPTED INFORMATION" in text:
+            # Parse this page for encrypted data
+            blocks = page.get_text("blocks")
+            
+            current_item = None
+            for block in blocks:
+                block_text = block[4].strip()
+                
+                # Look for item types
+                if block_text.endswith(":") and any(key in block_text.lower() for key in ["name:", "email:", "affiliation:", "title:"]):
+                    # Start a new item
+                    current_item = {
+                        "type": block_text.lower().rstrip(":"),
+                        "original": None,
+                        "encrypted": None
+                    }
+                
+                # Look for original value
+                elif current_item and block_text.startswith("Original:"):
+                    current_item["original"] = block_text[len("Original:"):].strip()
+                
+                # Look for encrypted value
+                elif current_item and block_text.startswith("Encrypted:"):
+                    encrypted_value = block_text[len("Encrypted:"):].strip()
+                    
+                    # The encrypted value might continue on the next lines
+                    # For simplicity, we'll just use what we have
+                    current_item["encrypted"] = encrypted_value
+                    
+                    # Add the completed item and reset
+                    if current_item["original"] and current_item["encrypted"]:
+                        encrypted_data.append(current_item)
+                        current_item = None
+    
+    return encrypted_data
 
-    unpadder = padding.PKCS7(128).unpadder()
-    data = unpadder.update(padded_data) + unpadder.finalize()
-
-    return data.decode()
-
+def restore_original_content(doc: fitz.Document, encrypted_data: List[Dict]) -> fitz.Document:
+    """
+    Restore the original content in the PDF by removing asterisks
+    and putting back the original content
+    """
+    # We'll focus on the first page where the redactions are likely to be
+    page = doc[0]
+    
+    # For each encrypted item, find the corresponding asterisks and replace them
+    for item in encrypted_data:
+        item_type = item["type"]
+        original_text = item["original"]
+        
+        if original_text:
+            # Create a pattern of asterisks that matches the length of the original text
+            asterisk_pattern = "*" * len(original_text)
+            
+            # Search for the asterisk pattern on the page
+            instances = page.search_for(asterisk_pattern)
+            
+            for rect in instances:
+                # Only process if in the top 50% of the page (where author info usually is)
+                if rect.y0 < page.rect.height * 0.5:
+                    # Replace with original text
+                    # First remove the asterisks by drawing a white rectangle
+                    page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
+                    
+                    # Then insert the original text
+                    page.insert_text(
+                        fitz.Point(rect.x0, (rect.y0 + rect.y1) / 2),
+                        original_text,
+                        fontsize=8
+                    )
+    
+    return doc
 
 @router.post("/api/py/decrypt")
 async def decrypt_pdf_endpoint(request: dict):
@@ -61,16 +147,11 @@ async def decrypt_pdf_endpoint(request: dict):
                 status_code=400,
                 content={"error": "Filename is required"}
             )
-
-        # Extract encryption mapping if provided
-        encryption_mapping = request.get("encryptionMapping", {})
-        encrypted_data = encryption_mapping.get("encrypted_data", [])
-
+        
         # Build file paths
-        input_path = os.path.join(REVIEW_DIR, ("reviewed_" + filename) )
+        input_path = os.path.join(REVIEW_DIR, "reviewed_" + filename)
         
         if not os.path.exists(input_path):
-            print(f"File not foundXXXX: {input_path}")
             return JSONResponse(
                 status_code=404,
                 content={"error": f"File not found: {filename}"}
@@ -78,103 +159,66 @@ async def decrypt_pdf_endpoint(request: dict):
 
         # Generate output filename
         output_filename = f"decrypted_{filename}"
-        output_path = os.path.join(PROCESS_DIR, output_filename)
+        output_path = os.path.join(DECRYPT_DIR, output_filename)
 
         # Read the PDF file
-        with open(input_path, "rb") as f:
-            pdf_bytes = f.read()
-
-        # Open the PDF for modification
-        doc = fitz.open("pdf", pdf_bytes)
+        doc = fitz.open(input_path)
         
-        # Verify the document has pages
-        if doc.page_count == 0:
-            raise ValueError("The PDF document contains no pages")
-
-        # Initialize dictionary for replacements (encrypted -> original)
-        replacements = {}
+        # Check if the document has encryption data
+        encrypted_data = extract_encryption_data(doc)
         
-        # Process the encrypted data to build the replacement dictionary
+        if not encrypted_data:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "No encryption data found in the PDF"}
+            )
+        
+        # Process each encrypted item to get the original content
+        decrypted_items = []
         for item in encrypted_data:
-            for data_type, data in item.items():  # data_type can be name, email, affiliation, etc.
-                if isinstance(data, dict) and "original" in data and "encrypted" in data:
-                    # Get encrypted value and original value
-                    encrypted_value = data["encrypted"]
-                    original_value = data["original"]
-                    
-                    # Try to decrypt the encrypted value to verify
-                    try:
-                        decrypted_value = decrypt_aes(encrypted_value)
-                        # If decryption successful and matches original, add to replacements
-                        if decrypted_value == original_value:
-                            # Replace the asterisks with the original text
-                            asterisks = "*" * len(original_value)
-                            replacements[asterisks] = original_value
-                    except Exception as e:
-                        print(f"Error decrypting {data_type}: {str(e)}")
-
-        # Process the first page to restore sensitive information
-        page = doc[0]  # Get the first page
-
-        # Sort replacements by length (longest first) to avoid partial replacements
-        sorted_replacements = sorted(
-            replacements.items(), key=lambda x: len(x[0]), reverse=True)
-
-        # Get text blocks to handle manual replacements
-        blocks = page.get_text("blocks")
-        
-        # First pass: Replace asterisks with original text in the content stream
-        for original_asterisks, replacement in sorted_replacements:
-            # Search for the exact asterisk pattern
-            instances = page.search_for(original_asterisks)
-            
-            for rect in instances:
-                # Only process if in the top 50% of the page (same as encryption)
-                if rect.y0 < page.rect.height * 0.5:
-                    # Need to delete existing content and insert the original
-                    page.add_redact_annot(rect, text=replacement)
-        
-        # Apply all redactions (which in this case restores original text)
-        page.apply_redactions()
-        
-        # Second pass: Handle any redacted blocks that might have been inserted as text
-        for block in blocks:
-            # Only process blocks in the top 50% of the page
-            if block[1] < page.rect.height * 0.5:
-                block_text = block[4]
+            try:
+                encrypted_value = item["encrypted"]
                 
-                # Check if this block contains any asterisk patterns we need to replace
-                new_text = block_text
-                for asterisks, original in sorted_replacements:
-                    if asterisks in new_text:
-                        new_text = new_text.replace(asterisks, original)
+                # The encrypted value might be incomplete if it was split across multiple lines
+                # Try to decrypt it anyway, but handle potential errors
+                decrypted_value = decrypt_aes(encrypted_value)
                 
-                # If we made any changes, update the block
-                if new_text != block_text:
-                    # Create a rectangle for this block
-                    rect = fitz.Rect(block[0], block[1], block[2], block[3])
-                    
-                    # Clear existing content and insert the decrypted text
-                    page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
-                    page.insert_text(fitz.Point(block[0] + 2, (block[1] + block[3])/2), 
-                                   new_text, 
-                                   fontsize=8)
+                item["decrypted"] = decrypted_value
+                decrypted_items.append({
+                    "type": item["type"],
+                    "original": item["original"],
+                    "decrypted": decrypted_value
+                })
+            except Exception as e:
+                # Log the error but continue with other items
+                print(f"Error decrypting {item['type']}: {str(e)}")
         
-        # Save the modified PDF
-        output = io.BytesIO()
-        doc.save(output, deflate=True, garbage=4)
-        doc.close()
-
+        # Restore the original content in the PDF
+        modified_doc = restore_original_content(doc, encrypted_data)
+        
+        # Remove the encryption information pages
+        # Identify which pages contain encryption information
+        pages_to_remove = []
+        for page_num in range(doc.page_count - 1, 0, -1):
+            page = doc[page_num]
+            text = page.get_text()
+            if "ENCRYPTED INFORMATION" in text:
+                pages_to_remove.append(page_num)
+        
+        # Remove pages in reverse order to avoid index shifting
+        for page_num in sorted(pages_to_remove, reverse=True):
+            doc.delete_page(page_num)
+        
         # Save the decrypted PDF
-        with open(output_path, "wb") as f:
-            f.write(output.getvalue())
-
-        # Return response with the new filename
+        doc.save(output_path, deflate=True, garbage=4)
+        doc.close()
+        
+        # Return response with mapping of decrypted items
         return JSONResponse(content={
             "success": True,
-            "decrypted_filename": output_filename,
-            "download_url": f"/pdfs/processed/{output_filename}",
-            "replacements_count": len(replacements)
+            "decrypted_items": decrypted_items,
+            "processed_filename": output_filename,
+            "download_url": f"/pdfs/decrypted/{output_filename}"
         })
 
     except Exception as e:
