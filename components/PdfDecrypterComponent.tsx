@@ -126,14 +126,13 @@ export default function PdfDecrypterComponent() {
       console.log('Using decryption key:', decryptionKey);
 
       // You'll need to create this API endpoint to handle PDF decryption
-      const processResponse = await fetch('/api/py/decrypt-pdf', {
+      const processResponse = await fetch('/api/py/decrypt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           filename: selectedFilename,
-          decryptionKey: decryptionKey
         }),
       });
 
