@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Check, AlertTriangle, Unlock, Key } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Loader2, Check, AlertTriangle, Unlock, FileText } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 
 interface Paper {
   trackingNumber: string;
@@ -17,43 +17,31 @@ interface Paper {
 }
 
 interface DecryptedItem {
-  [key: string]: {
-    encrypted: string;
-    original: string;
-  };
-}
-
-interface MappingData {
-  sensitive_data_found?: {
-    name?: boolean;
-    email?: boolean;
-    affiliation?: boolean;
-    title?: boolean;
-    address?: boolean;
-  };
-  encrypted_data?: any[];
-  total_replacements?: number;
+  encrypted: string;
+  decrypted: string;
+  method?: string;
+  error?: string;
 }
 
 interface ProcessResult {
   download_url: string;
   decrypted_items_count: number;
-  decrypted_items: DecryptedItem[];
+  decrypted_items: Record<string, { encrypted: string, original: string }>[]; // Original format
+  decryption_results?: DecryptedItem[]; // New format from backend
 }
 
 export default function PdfDecrypterComponent() {
   // State for encrypted files
   const [availableFiles, setAvailableFiles] = useState<Paper[]>([]);
   const [selectedFilename, setSelectedFilename] = useState<string>("");
-  const [decryptionKey, setDecryptionKey] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingFiles, setLoadingFiles] = useState<boolean>(true);
   const [result, setResult] = useState<ProcessResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [processingError, setProcessingError] = useState<string | null>(null);
   
-  // Mapping data for decryption
-  const [mappingData, setMappingData] = useState<MappingData | null>(null);
+  // New state for replacement option
+  const [replaceWithNewPage, setReplaceWithNewPage] = useState<boolean>(true);
 
   // Fetch available encrypted PDFs when component mounts
   useEffect(() => {
@@ -84,35 +72,12 @@ export default function PdfDecrypterComponent() {
     setError(null);
     setProcessingError(null);
     setResult(null);
-    // Fetch mapping data for the selected file
-    fetchMappingData(filename);
-  };
-
-  // Fetch mapping data for a specific file
-  const fetchMappingData = async (filename: string) => {
-    try {
-      // You'll need to create this API endpoint to get file mapping data
-      const response = await fetch(`/api/get-mapping-data?filename=${encodeURIComponent(filename)}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch mapping data');
-      }
-      const data = await response.json();
-      setMappingData(data.mapping || null);
-    } catch (err) {
-      console.error('Error fetching mapping data:', err);
-      // Not setting an error here as it's not critical
-    }
   };
 
   // Process the selected file for decryption
   const handleDecrypt = async () => {
     if (!selectedFilename) {
       setError('Please select a PDF file first');
-      return;
-    }
-
-    if (!decryptionKey) {
-      setError('Please enter the decryption key');
       return;
     }
 
@@ -123,9 +88,8 @@ export default function PdfDecrypterComponent() {
       setResult(null);
 
       console.log('Decrypting file:', selectedFilename);
-      console.log('Using decryption key:', decryptionKey);
 
-      let content
+      let content;
       try {
         const res = await fetch(`/api/upload-pdf`, {
           method: 'POST',
@@ -144,11 +108,12 @@ export default function PdfDecrypterComponent() {
         console.log('Error fetching PDF content:', error);
         setError('Failed to fetch PDF content');
         setLoading(false);
+        return;
       }
 
       console.log('PDF content:', content);
 
-      // You'll need to create this API endpoint to handle PDF decryption
+      // Send to API for decryption with new option to replace pages
       const processResponse = await fetch('/api/decrypt', {
         method: 'POST',
         headers: {
@@ -156,10 +121,11 @@ export default function PdfDecrypterComponent() {
         },
         body: JSON.stringify({
           pdfFileContent: content,
+          fileName: selectedFilename,
+          replaceWithNewPage: replaceWithNewPage
         }),
       });
       
-
       if (!processResponse.ok) {
         const processError = await processResponse.json();
         setProcessingError(processError.error || 'Failed to decrypt file');
@@ -192,8 +158,9 @@ export default function PdfDecrypterComponent() {
 
       setResult({
         download_url: processResult.download_url,
-        decrypted_items_count: processResult.decrypted_items_count || 0,
-        decrypted_items: processResult.decrypted_items || []
+        decrypted_items_count: processResult.total_decrypted || processResult.decrypted_items_count || 0,
+        decrypted_items: processResult.decrypted_items || [],
+        decryption_results: processResult.decryption_results || []
       });
     } catch (err) {
       console.error('Error in decryption process:', err);
@@ -201,6 +168,34 @@ export default function PdfDecrypterComponent() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Format the decryption results for display
+  const getFormattedResults = () => {
+    if (!result) return [];
+    
+    // Use new format if available
+    if (result.decryption_results && result.decryption_results.length > 0) {
+      return result.decryption_results.map((item, index) => ({
+        index,
+        dataType: 'Data',
+        encrypted: item.encrypted,
+        original: item.decrypted,
+        method: item.method
+      }));
+    }
+    
+    // Fallback to old format
+    return (result.decrypted_items || []).map((item, index) => {
+      const dataType = Object.keys(item)[0];
+      const data = item[dataType];
+      return {
+        index,
+        dataType,
+        encrypted: data.encrypted,
+        original: data.original
+      };
+    });
   };
 
   return (
@@ -239,48 +234,20 @@ export default function PdfDecrypterComponent() {
               </Select>
             </div>
 
-            {/* Decryption key input */}
-            <div className="grid w-full items-center gap-2 mt-4">
-              <Label htmlFor="decryption-key">Decryption Key</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="decryption-key"
-                  type="text"
-                  placeholder="Enter decryption key"
-                  value={decryptionKey}
-                  onChange={(e) => setDecryptionKey(e.target.value)}
-                  className="flex-1"
-                />
-                <Button variant="outline" size="icon">
-                  <Key className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Enter the decryption key provided when the PDF was anonymized
-              </p>
+            {/* New option for replacing pages */}
+            <div className="flex items-center justify-between space-x-2 mt-4">
+              <Label htmlFor="replace-option" className="flex-1">
+                Replace encrypted pages with a new summary page
+              </Label>
+              <Switch
+                id="replace-option"
+                checked={replaceWithNewPage}
+                onCheckedChange={setReplaceWithNewPage}
+              />
             </div>
-
-            {/* Display mapping data if available */}
-            {mappingData && (
-              <div className="mt-4">
-                <h4 className="font-medium">Encrypted Data Types:</h4>
-                <div className="mt-2 p-3 bg-gray-50 border rounded">
-                  <ul className="list-disc pl-5">
-                    {mappingData.sensitive_data_found?.name && <li>Author names</li>}
-                    {mappingData.sensitive_data_found?.email && <li>Email addresses</li>}
-                    {mappingData.sensitive_data_found?.affiliation && <li>Institutional affiliations</li>}
-                    {mappingData.sensitive_data_found?.title && <li>Article title</li>}
-                    {mappingData.sensitive_data_found?.address && <li>Address information</li>}
-                    {!mappingData.sensitive_data_found?.name &&
-                      !mappingData.sensitive_data_found?.email &&
-                      !mappingData.sensitive_data_found?.affiliation &&
-                      !mappingData.sensitive_data_found?.title &&
-                      !mappingData.sensitive_data_found?.address &&
-                      <li>No encrypted data found in mapping</li>}
-                  </ul>
-                </div>
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground">
+              When enabled, the decrypted PDF will have a new summary page with all decrypted data
+            </p>
 
             {error && (
               <Alert variant="destructive">
@@ -304,40 +271,45 @@ export default function PdfDecrypterComponent() {
                 <AlertTitle>Decryption Complete</AlertTitle>
                 <AlertDescription className="space-y-2">
                   <p>Successfully decrypted PDF</p>
-                  <p>Download: <a href={result.download_url} className="text-blue-600 underline">Download Decrypted PDF</a></p>
+                  <p>Download: <a href={result.download_url} className="text-blue-600 underline">
+                    <FileText className="h-4 w-4 inline mr-1" />
+                    Download Decrypted PDF
+                  </a></p>
 
                   <div className="mt-2">
                     <h4 className="font-medium">Decryption summary:</h4>
                     <p>Total items decrypted: {result.decrypted_items_count}</p>
+                    {replaceWithNewPage && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        A new summary page has been added to the PDF with all decrypted information
+                      </p>
+                    )}
                   </div>
                 </AlertDescription>
               </Alert>
             )}
 
-            {result && result.decrypted_items && result.decrypted_items.length > 0 && (
+            {result && getFormattedResults().length > 0 && (
               <div className="mt-4">
                 <h4 className="font-medium">Decrypted Data:</h4>
                 <ScrollArea className="h-60 border rounded mt-2">
                   <div className="p-3 bg-gray-50">
-                    {result.decrypted_items.map((item, index) => {
-                      const dataType = Object.keys(item)[0];
-                      const data = item[dataType];
-                      return (
-                        <div key={index} className="mb-2 p-2 border-b last:border-b-0">
-                          <div className="flex justify-between">
-                            <span className="font-semibold capitalize">{dataType}:</span>
-                          </div>
-                          <div className="mt-1">
-                            <span className="text-xs">Encrypted: </span>
-                            <code className="bg-gray-100 px-1 py-0.5 rounded text-xs break-all">{data.encrypted}</code>
-                          </div>
-                          <div className="mt-1">
-                            <span className="text-xs">Decrypted: </span>
-                            <code className="bg-green-100 px-1 py-0.5 rounded text-xs">{data.original}</code>
-                          </div>
+                    {getFormattedResults().map((item : any) => (
+                      <div key={item.index} className="mb-2 p-2 border-b last:border-b-0">
+                        <div className="flex justify-between">
+                          <span className="font-semibold capitalize">{item.dataType}:</span>
+                          {item.method && <span className="text-xs bg-blue-100 px-2 py-0.5 rounded">Method: {item.method}</span>}
                         </div>
-                      );
-                    })}
+                        <div className="mt-1">
+                          <span className="text-xs">Encrypted: </span>
+                          <code className="bg-gray-100 px-1 py-0.5 rounded text-xs break-all">{item.encrypted}</code>
+                        </div>
+                        <div className="mt-1">
+                          <span className="text-xs">Decrypted: </span>
+                          <code className="bg-green-100 px-1 py-0.5 rounded text-xs">{item.original}</code>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </ScrollArea>
               </div>
@@ -348,7 +320,7 @@ export default function PdfDecrypterComponent() {
       <CardFooter>
         <Button
           onClick={handleDecrypt}
-          disabled={!selectedFilename || !decryptionKey || loading}
+          disabled={!selectedFilename || loading}
           className="w-full"
         >
           {loading ? (
