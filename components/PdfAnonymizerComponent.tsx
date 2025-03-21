@@ -106,6 +106,27 @@ export default function PdfAnonymizerComponent() {
 
       const processResult = await processResponse.json();
       console.log('File processed successfully:', processResult);
+
+      console.log(processResult.mapping.encrypted_data);
+      
+      try {
+        await fetch('/api/saveData', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputData: processResult.mapping.encrypted_data,
+            trackingNumber: selectedFilename, // Assuming trackingNumber is the selectedFilename
+          }),
+        });
+
+      } catch (error) {
+        console.error('Error saving data:', error);
+        setError('Failed to save encrypted data');
+      }
+      
+
       // Transform the result to include the mapping data which shows what was encrypted
       const transformedResult = {
         ...processResult,

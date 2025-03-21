@@ -23,12 +23,20 @@ model Paper {
   reviewDate    DateTime @updatedAt
 }
 
+model PaperData {
+  id      String @id @default(cuid())
+  content String @db.Text // Use TEXT type for large strings
+  type    String
+
+  trackingNumber String
+}
+
 model Message {
-  id        Int      @id @default(autoincrement())
-  sender    String
-  receiver  String
-  message   String
-  
+  id       Int    @id @default(autoincrement())
+  sender   String
+  receiver String
+  message  String
+
   createdAt DateTime @default(now())
 }
 

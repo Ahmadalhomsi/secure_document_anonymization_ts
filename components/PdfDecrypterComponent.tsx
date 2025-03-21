@@ -125,16 +125,40 @@ export default function PdfDecrypterComponent() {
       console.log('Decrypting file:', selectedFilename);
       console.log('Using decryption key:', decryptionKey);
 
+      let content
+      try {
+        const res = await fetch(`/api/upload-pdf`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filename: ("processed_" + selectedFilename),
+          }),
+        });
+        if (!res.ok) {
+          throw new Error('Failed to fetch PDF content');
+        }
+        content = await res.text();
+      } catch (error) {
+        console.log('Error fetching PDF content:', error);
+        setError('Failed to fetch PDF content');
+        setLoading(false);
+      }
+
+      console.log('PDF content:', content);
+
       // You'll need to create this API endpoint to handle PDF decryption
-      const processResponse = await fetch('/api/py/decrypt', {
+      const processResponse = await fetch('/api/decrypt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          filename: selectedFilename,
+          pdfFileContent: content,
         }),
       });
+      
 
       if (!processResponse.ok) {
         const processError = await processResponse.json();

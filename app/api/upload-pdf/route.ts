@@ -1,59 +1,45 @@
-// File: src/app/api/upload-pdf/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
-import { mkdir } from 'fs/promises';
+import { promises as fs } from 'fs';
+import path from 'path';
+import PDFParser from 'pdf2json';
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
+  const { filename } = await req.json();
+
+  if (typeof filename !== 'string' || !filename.endsWith('.pdf')) {
+    return new NextResponse('Invalid filename', { status: 400 });
+  }
+
+  // Construct the full path to the PDF file in the public/pdfs directory
+
+  const filePath = path.join(process.cwd(), 'pdfs', 'processed', filename);
+
   try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    
-    if (!file) {
-      return NextResponse.json({ error: 'File is required' }, { status: 400 });
-    }
-    
-    // Check file type
-    if (file.type !== 'application/pdf') {
-      return NextResponse.json({ error: 'Only PDF files are allowed' }, { status: 400 });
-    }
-    
-    // Convert the file to buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    
-    // Create the pdfs directory if it doesn't exist
-    const pdfsDir = join(process.cwd(), 'pdfs');
-    try {
-      await mkdir(pdfsDir, { recursive: true });
-    } catch (error) {
-        console.log('Directory already exists or cannot be created', error);
-    }
-    
-    // Create a unique filename
-    const timestamp = Date.now();
-    const filename = `${timestamp}-${file.name}`;
-    const filepath = join(pdfsDir, filename);
-    
-    // Write the file to the server
-    await writeFile(filepath, buffer);
-    
-    // Return the filename for further processing
-    return NextResponse.json({ 
-      message: 'File uploaded successfully',
-      filename
+    // Check if the file exists
+    await fs.access(filePath);
+
+    const pdfParser = new (PDFParser as any)(null, 1);
+
+    return new Promise((resolve, reject) => {
+      pdfParser.on('pdfParser_dataError', (errData: any) => {
+        console.error(errData.parserError);
+        reject(new NextResponse('Error parsing PDF', { status: 500 }));
+      });
+
+      pdfParser.on('pdfParser_dataReady', () => {
+        const parsedText = (pdfParser as any).getRawTextContent();
+        resolve(
+          new NextResponse(parsedText, {
+            headers: { 'Content-Type': 'text/plain' },
+          })
+        );
+      });
+
+      pdfParser.loadPDF(filePath);
     });
   } catch (error) {
-    console.error('Error uploading file:', error);
-    return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
+    console.log('Error reading file:', error);
+    
+    return new NextResponse('File not found', { status: 404 });
   }
 }
-
-// Increase the limit for the request body size
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-};
