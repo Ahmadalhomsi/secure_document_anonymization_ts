@@ -221,10 +221,8 @@ def decrypt_pdf_content(request: DecryptRequest):
 
         # Improved pattern to match encrypted strings
         # Look for "Encrypted:" followed by content until next keyword or end of content
-        pattern = r'Encrypted:\s+((?:[^\n]+(?:\n(?!Encrypted:|Affiliation:|Original:))?)+)'
-
-        # Find all encrypted values
-        matches = re.finditer(pattern, content)
+        pattern = r'Encrypted:\s*\[(.*?)\]'
+        matches = re.finditer(pattern, content, re.DOTALL)
 
         # Store decryption results
         decryption_results = []
@@ -234,6 +232,9 @@ def decrypt_pdf_content(request: DecryptRequest):
             try:
                 # Get the full encrypted text and strip any extra whitespace
                 encrypted_raw = match.group(1).strip()
+
+                # Remove \r\n characters
+                encrypted_raw = encrypted_raw.replace('\r\n', '')
 
                 # Handle case where there might be multiple hex strings
                 # Split by whitespace and process each part that looks like encryption
@@ -347,6 +348,7 @@ def decrypt_pdf_content(request: DecryptRequest):
         })
 
     except Exception as e:
+        print(e)
         return JSONResponse(
             status_code=500,
             content={
@@ -354,3 +356,4 @@ def decrypt_pdf_content(request: DecryptRequest):
                 "error": f"Decryption failed: {str(e)}"
             }
         )
+

@@ -114,7 +114,7 @@ export default function PdfDecrypterComponent() {
       console.log('PDF content:', content);
 
       // Send to API for decryption with new option to replace pages
-      const processResponse = await fetch('/api/decrypt', {
+      const processResponse = await fetch('/api/py/decrypt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

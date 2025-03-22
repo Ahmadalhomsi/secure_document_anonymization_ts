@@ -421,7 +421,7 @@ def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
                     
                     # Add encrypted value - handle long encrypted values
                     # Start the encrypted value text
-                    encrypted_text = f"Encrypted: {encrypted}"
+                    encrypted_text = f"Encrypted: [{encrypted}]"
                     
                     # Calculate how many characters can fit on one line
                     # Approximate 6 pixels per character for font size 9
