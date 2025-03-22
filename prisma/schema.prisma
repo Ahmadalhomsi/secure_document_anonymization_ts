@@ -20,7 +20,8 @@ model Paper {
 
   feedback      String?
   feedbackScore Int? // 100/100
-  reviewDate    DateTime @updatedAt
+  reviewer     String?
+  reviewDate    DateTime?
 }
 
 // model PaperData {

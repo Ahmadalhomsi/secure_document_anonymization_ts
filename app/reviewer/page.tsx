@@ -158,7 +158,11 @@ export default function ReviewerPage() {
               headers: {
               "Content-Type": "application/json",
               },
-              body: JSON.stringify({ trackingNumber: selectedFile.trackingNumber }),
+              body: JSON.stringify({ trackingNumber: selectedFile.trackingNumber,
+              review: reviewData,
+              reviewerProfile: selectedProfile,
+              reviewScore: reviewScore
+               }),
             });
             } else {
             console.error("Selected PDF does not match any available files.");
