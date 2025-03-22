@@ -121,7 +121,7 @@ export default function PdfDecrypterComponent() {
         },
         body: JSON.stringify({
           pdfFileContent: content,
-          fileName: selectedFilename,
+          fileName: ("reviewed_" + selectedFilename),
           replaceWithNewPage: replaceWithNewPage
         }),
       });
