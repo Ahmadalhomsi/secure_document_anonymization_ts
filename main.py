@@ -13,7 +13,7 @@ import hashlib
 import io
 import json
 
-from fastapiRouter import review, categorize, decrypt
+from fastapiRouter import addDecryptedInfo, review, categorize, decrypt
 
 # Create FastAPI instance with custom docs and openapi url
 app = FastAPI(docs_url="/api/py/docs", openapi_url="/api/py/openapi.json")
@@ -21,6 +21,7 @@ app = FastAPI(docs_url="/api/py/docs", openapi_url="/api/py/openapi.json")
 app.include_router(review.router)
 app.include_router(categorize.router)
 app.include_router(decrypt.router)
+app.include_router(addDecryptedInfo.router)
 
 # Add CORS middleware
 app.add_middleware(

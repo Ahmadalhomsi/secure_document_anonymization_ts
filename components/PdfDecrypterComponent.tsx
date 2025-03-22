@@ -142,13 +142,13 @@ export default function PdfDecrypterComponent() {
           throw new Error('Selected file not found in available files');
         }
 
-        await fetch('/api/process-decrypted-pdf', {
+        await fetch(`/api/py/addDecryptedInfo/reviewed_${selectedFilename}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            trackingNumber: selectedPaper.trackingNumber,
+            decryptionResults: processResult.decryption_results || []
           }),
         });
       } catch (error) {
