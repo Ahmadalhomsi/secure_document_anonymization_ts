@@ -234,7 +234,7 @@ def decrypt_pdf_content(request: DecryptRequest):
                 encrypted_raw = match.group(1).strip()
 
                 # Remove \r\n characters
-                encrypted_raw = encrypted_raw.replace('\r\n', '')
+                encrypted_raw = encrypted_raw.replace('\r', '').replace('\n', '').replace('----------------Page', '')
 
                 # Handle case where there might be multiple hex strings
                 # Split by whitespace and process each part that looks like encryption
