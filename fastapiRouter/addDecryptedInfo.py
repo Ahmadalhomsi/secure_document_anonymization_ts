@@ -30,12 +30,12 @@ async def add_decrypted_info_to_pdf(filename: str, decryption_data: Dict[str, An
     Returns:
         Modified PDF file as a download
     """
-        
+
     # Validate input
     if not filename.endswith('.pdf'):
         filename += '.pdf'
 
-    file_path = os.path.join(REVIEWED_PDFS_DIR, filename)
+    file_path = os.path.join(REVIEWED_PDFS_DIR,"reviewed_" + filename)
 
     # Check if file exists
     if not os.path.exists(file_path):

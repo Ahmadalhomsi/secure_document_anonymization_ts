@@ -142,7 +142,7 @@ export default function PdfDecrypterComponent() {
           throw new Error('Selected file not found in available files');
         }
 
-        await fetch(`/api/py/addDecryptedInfo/reviewed_${selectedFilename}`, {
+        await fetch(`/api/py/addDecryptedInfo/${selectedFilename}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -157,7 +157,7 @@ export default function PdfDecrypterComponent() {
       }
 
       setResult({
-        download_url: processResult.download_url,
+        download_url: "/api/pdfs/decrypted/" + ("decrypted_" + selectedFilename),
         decrypted_items_count: processResult.total_decrypted || processResult.decrypted_items_count || 0,
         decrypted_items: processResult.decrypted_items || [],
         decryption_results: processResult.decryption_results || []
