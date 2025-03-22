@@ -1,10 +1,9 @@
-// components/track-section.tsx
 "use client"
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardFooter } from "@/components/ui/card";
-import { CheckCircle, XCircle, Clock } from "lucide-react";
+import { CheckCircle, XCircle, Clock, FileText, Mail, User, Calendar, Star } from "lucide-react";
 import axios from "axios";
 
 interface TrackSectionProps {
@@ -13,12 +12,18 @@ interface TrackSectionProps {
 }
 
 interface PaperStatus {
-    id: string;
-    status: "pending" | "accepted" | "rejected" | string; // Allow for other statuses
+    id: number;
+    status: "pending" | "accepted" | "rejected" | "reviewed" | string;
     originalFileName: string;
     submitDate: string;
     reviewDate?: string;
     feedback?: string;
+    authorEmail?: string;
+    category?: string;
+    feedbackScore?: number;
+    reviewer?: string;
+    filePath?: string;
+    trackingNumber?: string;
 }
 
 export function TrackSection({ trackingNumber, setTrackingNumber }: TrackSectionProps) {
@@ -59,6 +64,8 @@ export function TrackSection({ trackingNumber, setTrackingNumber }: TrackSection
                 return <CheckCircle className="h-8 w-8 text-green-500" />;
             case "rejected":
                 return <XCircle className="h-8 w-8 text-red-500" />;
+            case "reviewed":
+                return <FileText className="h-8 w-8 text-blue-500" />;
             default:
                 return <Clock className="h-8 w-8 text-amber-500" />;
         }
@@ -70,9 +77,17 @@ export function TrackSection({ trackingNumber, setTrackingNumber }: TrackSection
                 return "bg-green-50 border-green-200";
             case "rejected":
                 return "bg-red-50 border-red-200";
+            case "reviewed":
+                return "bg-blue-50 border-blue-200";
             default:
                 return "bg-amber-50 border-amber-200";
         }
+    };
+
+    // Format date to be more readable
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleString();
     };
 
     return (
@@ -110,17 +125,56 @@ export function TrackSection({ trackingNumber, setTrackingNumber }: TrackSection
                                         {paperStatus.originalFileName}
                                     </h3>
                                     <div className="mt-2 space-y-2">
-                                        <div className="text-sm">
-                                            <span className="font-medium">Status:</span> {paperStatus.status ? paperStatus.status.charAt(0).toUpperCase() + paperStatus.status.slice(1) : "Unknown"}
+                                        <div className="text-sm flex items-center">
+                                            <span className="font-medium mr-2">Status:</span> 
+                                            {paperStatus.status ? paperStatus.status.charAt(0).toUpperCase() + paperStatus.status.slice(1) : "Unknown"}
                                         </div>
-                                        <div className="text-sm">
-                                            <span className="font-medium">Submission Date:</span> {paperStatus.submitDate}
-                                        </div>
-                                        {paperStatus.reviewDate && (
+                                        
+                                        {paperStatus.category && (
                                             <div className="text-sm">
-                                                <span className="font-medium">Review Date:</span> {paperStatus.reviewDate}
+                                                <span className="font-medium">Category:</span> {paperStatus.category}
                                             </div>
                                         )}
+                                        
+                                        {paperStatus.authorEmail && (
+                                            <div className="text-sm flex items-center">
+                                                <Mail className="h-4 w-4 mr-1" />
+                                                <span className="font-medium mr-1">Author Email:</span> {paperStatus.authorEmail}
+                                            </div>
+                                        )}
+                                        
+                                        <div className="text-sm flex items-center">
+                                            <Calendar className="h-4 w-4 mr-1" />
+                                            <span className="font-medium mr-1">Submission Date:</span> {formatDate(paperStatus.submitDate)}
+                                        </div>
+                                        
+                                        {paperStatus.reviewDate && (
+                                            <div className="text-sm flex items-center">
+                                                <Calendar className="h-4 w-4 mr-1" />
+                                                <span className="font-medium mr-1">Review Date:</span> {formatDate(paperStatus.reviewDate)}
+                                            </div>
+                                        )}
+                                        
+                                        {paperStatus.reviewer && (
+                                            <div className="text-sm flex items-center">
+                                                <User className="h-4 w-4 mr-1" />
+                                                <span className="font-medium mr-1">Reviewer:</span> {paperStatus.reviewer}
+                                            </div>
+                                        )}
+                                        
+                                        {paperStatus.trackingNumber && (
+                                            <div className="text-sm">
+                                                <span className="font-medium">Tracking Number:</span> {paperStatus.trackingNumber}
+                                            </div>
+                                        )}
+                                        
+                                        {paperStatus.feedbackScore !== undefined && (
+                                            <div className="text-sm flex items-center">
+                                                <Star className="h-4 w-4 mr-1" />
+                                                <span className="font-medium mr-1">Feedback Score:</span> {paperStatus.feedbackScore}/100
+                                            </div>
+                                        )}
+                                        
                                         {paperStatus.feedback && (
                                             <div className="mt-3 p-3 bg-white bg-opacity-50 rounded text-sm">
                                                 <span className="font-medium block mb-1">Feedback:</span>
