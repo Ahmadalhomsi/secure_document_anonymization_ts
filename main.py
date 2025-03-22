@@ -413,12 +413,12 @@ def process_pdf_for_ieee(pdf_bytes: bytes, options: EncryptionOptions) -> tuple:
                     if len(original) > 70:
                         original = original[:67] + "..."
                     
-                    new_page.insert_text(
-                        fitz.Point(current_x, y_position),
-                        f"Original: {original}",
-                        fontsize=9
-                    )
-                    y_position += 20  # Increase spacing
+                    # new_page.insert_text(
+                    #     fitz.Point(current_x, y_position),
+                    #     f"Original: {original}",
+                    #     fontsize=9
+                    # )
+                    y_position += 10  # Increase spacing
                     
                     # Add encrypted value - handle long encrypted values
                     # Start the encrypted value text
