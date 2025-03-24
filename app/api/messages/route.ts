@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET /api/messages
-// Modify the existing GET messages route
+// GET /api/messages
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const user = searchParams.get('user');
@@ -40,15 +40,14 @@ export async function GET(request: NextRequest) {
                 },
                 orderBy: { createdAt: 'asc' }
             })
-            : await prisma.message.findMany();
+            : await prisma.message.findMany({
+                orderBy: { createdAt: 'asc' }
+            });
 
         return NextResponse.json(messages, { status: 200 });
-    } catch (error) {
-        console.error(error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+    } catch (error: any) {
+        console.log(error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
 
