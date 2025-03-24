@@ -117,11 +117,10 @@ export function ChatSection({ email, trackingNumber }: ChatSectionProps) {
                         {msg.sender === "user" ? "U" : "S"}
                       </AvatarFallback>
                     </Avatar>
-                    <div className={`p-3 rounded-lg ${
-                      msg.sender === "user"
+                    <div className={`p-3 rounded-lg ${msg.sender === "user"
                         ? "bg-blue-500 text-white rounded-tr-none"
                         : "bg-gray-200 text-gray-800 rounded-tl-none"
-                    }`}>
+                      }`}>
                       {msg.text}
                     </div>
                   </div>

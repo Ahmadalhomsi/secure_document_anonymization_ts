@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
 
     if (!sender || !receiver || !message) {
         console.log(sender, receiver, message);
-        
+
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -24,13 +24,31 @@ export async function POST(request: NextRequest) {
 }
 
 // GET /api/messages
-export async function GET() {
+// Modify the existing GET messages route
+export async function GET(request: NextRequest) {
+    const { searchParams } = new URL(request.url);
+    const user = searchParams.get('user');
+
     try {
-        const messages = await prisma.message.findMany();
+        const messages = user
+            ? await prisma.message.findMany({
+                where: {
+                    OR: [
+                        { sender: user },
+                        { receiver: user }
+                    ]
+                },
+                orderBy: { createdAt: 'asc' }
+            })
+            : await prisma.message.findMany();
+
         return NextResponse.json(messages, { status: 200 });
-    } catch (error : any) {
-        console.log(error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    } catch (error) {
+        console.error(error);
+        return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500 }
+        );
     }
 }
 
@@ -48,7 +66,7 @@ export async function DELETE(request: NextRequest) {
             where: { id: Number(id) },
         });
         return NextResponse.json({}, { status: 204 });
-    } catch (error : any) {
+    } catch (error: any) {
         console.log(error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
