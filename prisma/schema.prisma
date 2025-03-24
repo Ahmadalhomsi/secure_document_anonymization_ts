@@ -41,6 +41,14 @@ model Message {
   createdAt DateTime @default(now())
 }
 
+model Log {
+  id        Int      @id @default(autoincrement())
+  action    String
+  actor     String
+  target    String
+  createdAt DateTime @default(now())
+}
+
 // model Reviewer {
 //   // 5 hakem
 //   id              Int    @id @default(autoincrement())
