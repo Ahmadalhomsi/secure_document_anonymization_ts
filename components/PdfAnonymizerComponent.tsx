@@ -275,7 +275,7 @@ export default function PdfAnonymizerComponent() {
                 <AlertTitle>Processing Complete</AlertTitle>
                 <AlertDescription className="space-y-2">
                   <p>Successfully processed PDF</p>
-                  <p>Download: <a href={result.download_url} className="text-blue-600 underline">Download Anonymized PDF</a></p>
+                  <p>Download: <a href={"api/" + result.download_url} className="text-blue-600 underline">Download Anonymized PDF</a></p>
 
                   <div className="mt-2">
                     <h4 className="font-medium">Sensitive data found and encrypted:</h4>
