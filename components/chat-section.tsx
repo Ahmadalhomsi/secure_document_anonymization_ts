@@ -17,14 +17,15 @@ interface Message {
 }
 
 interface ChatSectionProps {
+  email?: string;
   trackingNumber?: string;
 }
 
-export function ChatSection({ trackingNumber }: ChatSectionProps) {
-  const [email, setEmail] = useState("");
+export function ChatSection({ email: initialEmail, trackingNumber }: ChatSectionProps) {
+  const [email, setEmail] = useState(initialEmail || "");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(true);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(!initialEmail);
   const [emailError, setEmailError] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -65,16 +66,6 @@ export function ChatSection({ trackingNumber }: ChatSectionProps) {
 
     setEmailError("");
     setIsEmailModalOpen(false);
-
-    // Send initial welcome message
-    const initialMessage: Message = {
-      id: Date.now(),
-      sender: 'support',
-      receiver: email,
-      message: "Welcome to support chat. How can we help you with your paper submission?",
-      createdAt: new Date().toISOString()
-    };
-    setMessages([initialMessage]);
   };
 
   const sendMessage = async (e?: React.FormEvent) => {
@@ -117,36 +108,38 @@ export function ChatSection({ trackingNumber }: ChatSectionProps) {
   return (
     <>
       {/* Email Input Modal */}
-      <Dialog open={isEmailModalOpen} onOpenChange={setIsEmailModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enter Your Email</DialogTitle>
-            <DialogDescription>
-              Please provide your email to start the chat
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-              />
-              {emailError && (
-                <p className="text-red-500 text-sm">{emailError}</p>
-              )}
+      {!initialEmail && (
+        <Dialog open={isEmailModalOpen} onOpenChange={setIsEmailModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Enter Your Email</DialogTitle>
+              <DialogDescription>
+                Please provide your email to start the chat
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                />
+                {emailError && (
+                  <p className="text-red-500 text-sm">{emailError}</p>
+                )}
+              </div>
+              <Button 
+                onClick={handleEmailSubmit}
+                className="w-full"
+              >
+                Start Chat
+              </Button>
             </div>
-            <Button 
-              onClick={handleEmailSubmit}
-              className="w-full"
-            >
-              Start Chat
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <CardContent className="flex flex-col h-[400px]">
         <ScrollArea className="flex-1 p-4 border rounded-md mb-4">
@@ -187,18 +180,17 @@ export function ChatSection({ trackingNumber }: ChatSectionProps) {
         <form 
           onSubmit={sendMessage} 
           className="flex space-x-2"
-          style={{ display: isEmailModalOpen ? 'none' : 'flex' }}
         >
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            disabled={isEmailModalOpen}
+            disabled={!email}
           />
           <Button
             type="submit"
-            disabled={!inputValue.trim() || isEmailModalOpen}
+            disabled={!inputValue.trim() || !email}
           >
             Send
           </Button>
