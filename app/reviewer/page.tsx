@@ -97,6 +97,24 @@ export default function ReviewerPage() {
       setReviewerName("");
       setReviewerEmail("");
       setFilteredFiles(availableFiles);
+
+      // Log the profile deselection event
+      try {
+        fetch('/api/logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'Profile Deselected',
+            actor: 'User', // Replace with actual user identifier if available
+            target: 'None',
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to log profile deselection:', err);
+      }
+
       return;
     }
 
@@ -120,6 +138,23 @@ export default function ReviewerPage() {
       // Reset selected PDF if it's not in the filtered list
       if (filtered.length > 0 && !filtered.some(f => f.filePath === selectedPdf)) {
         setSelectedPdf("");
+      }
+
+      // Log the profile selection event
+      try {
+        fetch('/api/logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'Profile Selected',
+            actor: profile.email,
+            target: profile.name,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to log profile selection:', err);
       }
     }
   };
@@ -150,23 +185,42 @@ export default function ReviewerPage() {
 
       if (response.ok) {
         alert("Review submitted successfully!");
+
+        // Log the review submission event
         try {
-            const selectedFile = availableFiles.find(file => file.filePath === selectedPdf);
-            if (selectedFile) {
+          fetch('/api/logs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'Review Submitted',
+              actor: reviewerEmail,
+              target: selectedPdf,
+            }),
+          });
+        } catch (err) {
+          console.error('Failed to log review submission:', err);
+        }
+
+        try {
+          const selectedFile = availableFiles.find(file => file.filePath === selectedPdf);
+          if (selectedFile) {
             await fetch("/api/review", {
               method: "POST",
               headers: {
-              "Content-Type": "application/json",
+                "Content-Type": "application/json",
               },
-              body: JSON.stringify({ trackingNumber: selectedFile.trackingNumber,
-              review: reviewData,
-              reviewerProfile: selectedProfile,
-              reviewScore: reviewScore
-               }),
+              body: JSON.stringify({
+                trackingNumber: selectedFile.trackingNumber,
+                review: reviewData,
+                reviewerProfile: selectedProfile,
+                reviewScore: reviewScore
+              }),
             });
-            } else {
+          } else {
             console.error("Selected PDF does not match any available files.");
-            }
+          }
         } catch (error) {
           console.log(error);
         }
