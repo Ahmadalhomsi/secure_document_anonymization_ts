@@ -55,11 +55,28 @@ export default function PdfAnonymizerComponent() {
   }, []);
 
   // Handle file selection
-  const handleFileSelection = (filename: string) => {
+  const handleFileSelection = async (filename: string) => {
     setSelectedFilename(filename);
     setError(null);
     setProcessingError(null);
     setResult(null);
+
+    // Log the file selection event
+    try {
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'File Selection',
+          actor: 'User', // Replace with actual user identifier if available
+          target: filename,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to log file selection:', err);
+    }
   };
 
   // Handle checkbox changes
@@ -86,6 +103,23 @@ export default function PdfAnonymizerComponent() {
       console.log('Processing file:', selectedFilename);
       console.log('Encryption options:', encryptionOptions);
 
+      // Log the start of the processing event
+      try {
+        await fetch('/api/logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'PDF Processing Started',
+            actor: 'User', // Replace with actual user identifier if available
+            target: selectedFilename,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to log processing start:', err);
+      }
+
       const processResponse = await fetch('/api/py/process-pdf', {
         method: 'POST',
         headers: {
@@ -101,14 +135,49 @@ export default function PdfAnonymizerComponent() {
         const processError = await processResponse.json();
         setProcessingError(processError.error || 'Failed to process file');
         console.error('Processing error details:', processError.details);
+
+        // Log the processing failure
+        try {
+          await fetch('/api/logs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'PDF Processing Failed',
+              actor: 'User', // Replace with actual user identifier if available
+              target: selectedFilename,
+            }),
+          });
+        } catch (err) {
+          console.error('Failed to log processing failure:', err);
+        }
+
         return;
       }
 
       const processResult = await processResponse.json();
       console.log('File processed successfully:', processResult);
 
+      // Log the successful processing event
+      try {
+        await fetch('/api/logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'PDF Processing Completed',
+            actor: 'User', // Replace with actual user identifier if available
+            target: selectedFilename,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to log processing success:', err);
+      }
+
       console.log(processResult.mapping.encrypted_data);
-      
+
       // Save the encrypted data to the database
       // try {
       //   await fetch('/api/saveData', {
@@ -126,7 +195,7 @@ export default function PdfAnonymizerComponent() {
       //   console.error('Error saving data:', error);
       //   setError('Failed to save encrypted data');
       // }
-      
+
 
       // Transform the result to include the mapping data which shows what was encrypted
       const transformedResult = {

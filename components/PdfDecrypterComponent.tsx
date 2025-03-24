@@ -39,7 +39,7 @@ export default function PdfDecrypterComponent() {
   const [result, setResult] = useState<ProcessResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [processingError, setProcessingError] = useState<string | null>(null);
-  
+
   // New state for replacement option
   const [replaceWithNewPage, setReplaceWithNewPage] = useState<boolean>(true);
 
@@ -72,6 +72,25 @@ export default function PdfDecrypterComponent() {
     setError(null);
     setProcessingError(null);
     setResult(null);
+
+    setResult(null);
+
+    // Log the file selection event
+    try {
+      fetch('/api/logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'File Selection for Decryption',
+          actor: 'User', // Replace with actual user identifier if available
+          target: filename,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to log file selection:', err);
+    }
   };
 
   // Process the selected file for decryption
@@ -88,6 +107,23 @@ export default function PdfDecrypterComponent() {
       setResult(null);
 
       console.log('Decrypting file:', selectedFilename);
+
+      // Log the start of the decryption process
+      try {
+        await fetch('/api/logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'PDF Decryption Started',
+            actor: 'User', // Replace with actual user identifier if available
+            target: selectedFilename,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to log decryption start:', err);
+      }
 
       let content;
       try {
@@ -125,17 +161,52 @@ export default function PdfDecrypterComponent() {
           replaceWithNewPage: replaceWithNewPage
         }),
       });
-      
+
       if (!processResponse.ok) {
         const processError = await processResponse.json();
         setProcessingError(processError.error || 'Failed to decrypt file');
         console.error('Decryption error details:', processError.details);
+
+        // Log the decryption failure
+        try {
+          await fetch('/api/logs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'PDF Decryption Failed',
+              actor: 'User', // Replace with actual user identifier if available
+              target: selectedFilename,
+            }),
+          });
+        } catch (err) {
+          console.error('Failed to log decryption failure:', err);
+        }
+
         return;
       }
 
       const processResult = await processResponse.json();
       console.log('File decrypted successfully:', processResult);
-      
+
+      // Log the successful decryption event
+      try {
+        await fetch('/api/logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'PDF Decryption Completed',
+            actor: 'User', // Replace with actual user identifier if available
+            target: selectedFilename,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to log decryption success:', err);
+      }
+
       try { // process pdf by passing tracking number to update its status
         const selectedPaper = availableFiles.find(file => file.filePath === selectedFilename);
         if (!selectedPaper) {
@@ -173,7 +244,7 @@ export default function PdfDecrypterComponent() {
   // Format the decryption results for display
   const getFormattedResults = () => {
     if (!result) return [];
-    
+
     // Use new format if available
     if (result.decryption_results && result.decryption_results.length > 0) {
       return result.decryption_results.map((item, index) => ({
@@ -184,7 +255,7 @@ export default function PdfDecrypterComponent() {
         method: item.method
       }));
     }
-    
+
     // Fallback to old format
     return (result.decrypted_items || []).map((item, index) => {
       const dataType = Object.keys(item)[0];
@@ -294,7 +365,7 @@ export default function PdfDecrypterComponent() {
                 <h4 className="font-medium">Decrypted Data:</h4>
                 <ScrollArea className="h-60 border rounded mt-2">
                   <div className="p-3 bg-gray-50">
-                    {getFormattedResults().map((item : any) => (
+                    {getFormattedResults().map((item: any) => (
                       <div key={item.index} className="mb-2 p-2 border-b last:border-b-0">
                         <div className="flex justify-between">
                           <span className="font-semibold capitalize">{item.dataType}:</span>
