@@ -82,6 +82,13 @@ export function UploadSection({
       setTrackingNumber(trackingNum);
       setSuccessMessage(`Paper uploaded successfully! Your tracking number is: ${trackingNum} `);
 
+      // Log the file upload event
+      await axios.post("/api/logs", {
+        action: "File Upload",
+        actor: email,
+        target: file.name,
+      });
+
       // Start categorization
       setIsCategorizing(true);
       // Modified axios request to correctly send the pdf_filename
@@ -101,6 +108,12 @@ export function UploadSection({
           }
         );
 
+        // Log the categorization event
+        await axios.post("/api/logs", {
+          action: "Categorization",
+          actor: email,
+          target: response.data.fileName,
+        });
 
         try {
           await axios.post("/api/categorize", {
