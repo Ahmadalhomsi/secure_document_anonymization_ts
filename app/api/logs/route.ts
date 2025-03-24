@@ -37,3 +37,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create log" }, { status: 500 });
   }
 }
+
+export async function DELETE() {
+    try {
+      // Delete all logs
+      await prisma.log.deleteMany();
+  
+      return NextResponse.json({ message: "All logs cleared successfully" }, { status: 200 });
+    } catch (error) {
+      console.error("Error clearing logs:", error);
+      return NextResponse.json({ error: "Failed to clear logs" }, { status: 500 });
+    }
+  }
