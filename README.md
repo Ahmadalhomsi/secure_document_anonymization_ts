@@ -109,25 +109,4 @@ npm run dev
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions! To get started:
-
-1. Fork the repository.
-2. Create a feature branch: `git checkout -b feature/YourFeature`.
-3. Commit your changes: `git commit -m "Add your feature description"`.
-4. Push to the branch: `git push origin feature/YourFeature`.
-5. Open a pull request.
-
-Please ensure you follow any additional guidelines in the `CONTRIBUTING.md` if present.
-
----
-
-## 📜 License
-
-This project is licensed under the terms specified in the `LICENSE` file.
-
----
-
-Thank you for using the Academic Paper Management System! If you have any questions or feedback, feel free to open an issue or reach out on the project chat.
 
