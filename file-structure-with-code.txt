@@ -98,6 +98,7 @@ File Structure:
 │       ├── decrypt.cpython-311.pyc
 │       ├── review.cpython-311.pyc
 │       └── test.cpython-311.pyc
+├── file-structure-with-code.txt
 ├── lib /
 │   ├── crypto.ts
 │   ├── prisma.ts
@@ -108,9 +109,13 @@ File Structure:
 ├── package-lock.json
 ├── package.json
 ├── pdfs /
+│   ├── 2u8d4eelhs__rnek_makale3.pdf
 │   ├── decrypted /
+│   │   └── decrypted_2u8d4eelhs__rnek_makale3.pdf
 │   ├── processed /
+│   │   └── processed_2u8d4eelhs__rnek_makale3.pdf
 │   └── reviewed /
+│       └── reviewed_2u8d4eelhs__rnek_makale3.pdf
 ├── postcss.config.mjs
 ├── prisma /
 │   └── schema.prisma
